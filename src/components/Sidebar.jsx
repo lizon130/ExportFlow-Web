@@ -35,7 +35,7 @@ function Sidebar() {
         { icon: <Key size={18} />, label: "Rights", path: "/rights/create" },
       ],
     },
-    { icon: <BarChart size={20} />, label: "Analytics", path: "/analytics" },
+    { icon: <BarChart size={20} />, label: "Logs", path: "/logs" },
     { icon: <FileText size={20} />, label: "Documents", path: "/documents" },
     { icon: <Calendar size={20} />, label: "Calendar", path: "/calendar" },
     { icon: <Settings size={20} />, label: "Settings", path: "/settings" },
