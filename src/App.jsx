@@ -32,8 +32,7 @@ function App() {
           {/* New Route for User & Security Management */}
           <Route path="/users" element={<UsersTable />} />
           <Route path="/roles" element={<RoleManagement />} />
-
-            <Route path="/users/create" element={<UsersPage />} />
+          <Route path="/users/create" element={<UsersPage />} />
           <Route path="/roles/create" element={<RolesPage />} />
           <Route path="/rights/create" element={<RightsPage />} />
         </Route>

@@ -1,50 +1,119 @@
 import { useState } from "react";
 
 function Login() {
-  const [email, setEmail] = useState("");
+  const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const API_URL = "http://192.168.9.45:7000/api/Auth/login";
+
+  const getUserIdFromToken = (token) => {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return payload.sub || "";
+    } catch {
+      return "";
+    }
+  };
+
+  const getUserFromToken = (token) => {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+
+      return {
+        id: payload.sub || "",
+        userName:
+          payload[
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
+          ] || userName,
+        email:
+          payload[
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
+          ] || "",
+        role: payload.role || "",
+      };
+    } catch {
+      return {
+        id: "",
+        userName,
+        email: "",
+        role: "",
+      };
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const staticEmail = "admin@gmail.com";
-    const staticPassword = "123456";
+    setLoading(true);
+    setMessage("");
 
-    if (email === staticEmail && password === staticPassword) {
+    const loginData = {
+      userName,
+      password,
+    };
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          accept: "*/*",
+        },
+        body: JSON.stringify(loginData),
+      });
+
+      const text = await response.text();
+      const result = text ? JSON.parse(text) : {};
+
+      if (!response.ok) {
+        setMessage("❌ " + (result.message || text || "Login failed"));
+        setIsSuccess(false);
+        return;
+      }
+
+      const user = getUserFromToken(result.accessToken);
+      const userId = getUserIdFromToken(result.accessToken);
+
+      localStorage.setItem("accessToken", result.accessToken || "");
+      localStorage.setItem("refreshToken", result.refreshToken || "");
+      localStorage.setItem("expireAt", result.expireAt || "");
+      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("userId", userId);
+
+      // Optional old keys support
+      localStorage.setItem("token", result.accessToken || "");
+
+      if (result.expireAt) {
+        localStorage.setItem(
+          "token_expiry",
+          new Date(result.expireAt).getTime().toString()
+        );
+      }
+
       setMessage("✅ Login successful!");
       setIsSuccess(true);
 
-      const user = {
-        id: 1,
-        name: "Admin",
-        email: staticEmail,
-        role: "Admin",
-      };
-
-      localStorage.setItem("token", "static-login-token");
-      localStorage.setItem("user", JSON.stringify(user));
-
-      const tokenExpiry = new Date().getTime() + 3 * 60 * 60 * 1000;
-      localStorage.setItem("token_expiry", tokenExpiry.toString());
-
-      setEmail("");
+      setUserName("");
       setPassword("");
 
       setTimeout(() => {
         window.location.href = "/";
-      }, 1000);
-    } else {
-      setMessage("❌ Invalid email or password");
+      }, 800);
+    } catch (err) {
+      console.error("Login error:", err);
+      setMessage("❌ Cannot connect to server. Check API URL or CORS.");
       setIsSuccess(false);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row">
-        {/* Left Image */}
         <div className="hidden md:block md:w-1/2 relative">
           <img
             src="https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=800&q=60"
@@ -62,7 +131,6 @@ function Login() {
           </div>
         </div>
 
-        {/* Right Form */}
         <div className="w-full md:w-1/2 p-6 sm:p-8 md:p-10">
           <div className="text-center mb-8">
             <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-gray-900 flex items-center justify-center text-white text-xl font-bold">
@@ -91,14 +159,14 @@ function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Email
+                Username
               </label>
 
               <input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                placeholder="Enter your username"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
                 className="border border-gray-300 rounded-xl px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-gray-700 text-sm"
                 required
               />
@@ -121,21 +189,26 @@ function Login() {
 
             <button
               type="submit"
-              className="w-full bg-gray-900 text-white py-3 rounded-xl mt-4 hover:bg-gray-700 transition font-semibold"
+              disabled={loading}
+              className={`w-full text-white py-3 rounded-xl mt-4 transition font-semibold ${
+                loading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-gray-900 hover:bg-gray-700"
+              }`}
             >
-              Login
+              {loading ? "Logging in..." : "Login"}
             </button>
 
-            <div className="bg-gray-100 rounded-xl p-3 text-center text-xs sm:text-sm text-gray-600">
-              Static Login: <b>admin@gmail.com</b> / <b>123456</b>
-            </div>
+            {/* <div className="bg-gray-100 rounded-xl p-3 text-center text-xs sm:text-sm text-gray-600">
+              Login: <b>admin</b> / <b>12345</b>
+            </div> */}
 
-            <p className="text-center text-gray-600 text-sm">
+            {/* <p className="text-center text-gray-600 text-sm">
               Don't have an account?{" "}
               <a href="/register" className="text-blue-600 hover:underline">
                 Register here
               </a>
-            </p>
+            </p> */}
           </form>
         </div>
       </div>
