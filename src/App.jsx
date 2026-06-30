@@ -11,33 +11,47 @@ import UsersPage from "./pages/UsersPage";
 import RolesPage from "./pages/RolesPage";
 import RightsPage from "./pages/RightsPage";
 import Logs from "./pages/Logs";
+import UsersTable from "./pages/UsersTable";
+
+// New document pages
+import ExportDocumentPage from "./pages/ExportDocumentPage";
+import BLDateCheckPage from "./pages/BLDateCheckPage";
+import ShippingPage from "./pages/ShippingPage";
+import BankSubmitPage from "./pages/BankSubmitPage";
+import RealizationPage from "./pages/RealizationPage";
 
 // Layouts
 import MainLayout from "./layouts/MainLayout";
-
-// New Import (Assuming you saved the previous code as UsersTable.jsx in pages folder)
-import UsersTable from "./pages/UsersTable";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Routes WITH header (Protected/Dashboard Area) */}
+        {/* Routes WITH header/sidebar */}
         <Route element={<MainLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/home" element={<Home />} />
           <Route path="/index" element={<Index />} />
 
-          {/* New Route for User & Security Management */}
+          {/* User & Security Management */}
           <Route path="/users" element={<UsersTable />} />
           <Route path="/roles" element={<RoleManagement />} />
           <Route path="/users/create" element={<UsersPage />} />
           <Route path="/roles/create" element={<RolesPage />} />
           <Route path="/rights/create" element={<RightsPage />} />
+
+          {/* Documents */}
+          <Route path="/documents/export-document" element={<ExportDocumentPage />} />
+          <Route path="/documents/bl-date-check" element={<BLDateCheckPage />} />
+          <Route path="/documents/shipping" element={<ShippingPage />} />
+          <Route path="/documents/bank-submit" element={<BankSubmitPage />} />
+          <Route path="/documents/realization" element={<RealizationPage />} />
+
+          {/* Logs */}
           <Route path="/logs" element={<Logs />} />
         </Route>
 
-        {/* Routes WITHOUT header (Public Area) */}
+        {/* Routes WITHOUT header/sidebar */}
         <Route path="/registration" element={<Registration />} />
         <Route path="/login" element={<Login />} />
       </Routes>

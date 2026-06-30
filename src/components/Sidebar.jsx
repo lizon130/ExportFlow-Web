@@ -3,7 +3,6 @@ import {
   Home,
   Users,
   Settings,
-  BarChart,
   FileText,
   Calendar,
   ChevronLeft,
@@ -15,6 +14,12 @@ import {
   UserCog,
   Menu,
   X,
+  ClipboardList,
+  Ship,
+  Building2,
+  Banknote,
+  BadgeDollarSign,
+  ScrollText,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -26,6 +31,39 @@ function Sidebar() {
 
   const menuItems = [
     { icon: <Home size={20} />, label: "Dashboard", path: "/" },
+
+    {
+      label: "Documents",
+      icon: <FileText size={20} />,
+      children: [
+        {
+          icon: <ClipboardList size={18} />,
+          label: "Export Document",
+          path: "/documents/export-document",
+        },
+        {
+          icon: <ScrollText size={18} />,
+          label: "B/L Date Check",
+          path: "/documents/bl-date-check",
+        },
+        {
+          icon: <Ship size={18} />,
+          label: "Shipping",
+          path: "/documents/shipping",
+        },
+        {
+          icon: <Building2 size={18} />,
+          label: "Bank Submit",
+          path: "/documents/bank-submit",
+        },
+        {
+          icon: <BadgeDollarSign size={18} />,
+          label: "Realization",
+          path: "/documents/realization",
+        },
+      ],
+    },
+
     {
       label: "User Management",
       icon: <UserCog size={20} />,
@@ -35,8 +73,8 @@ function Sidebar() {
         { icon: <Key size={18} />, label: "Rights", path: "/rights/create" },
       ],
     },
-    { icon: <BarChart size={20} />, label: "Logs", path: "/logs" },
-    { icon: <FileText size={20} />, label: "Documents", path: "/documents" },
+
+    { icon: <ScrollText size={20} />, label: "Logs", path: "/logs" },
     { icon: <Calendar size={20} />, label: "Calendar", path: "/calendar" },
     { icon: <Settings size={20} />, label: "Settings", path: "/settings" },
   ];
@@ -57,6 +95,8 @@ function Sidebar() {
       localStorage.removeItem("expireAt");
       localStorage.removeItem("user");
       localStorage.removeItem("userId");
+      localStorage.removeItem("token");
+      localStorage.removeItem("token_expiry");
 
       window.location.href = "/login";
     } catch (error) {
@@ -69,8 +109,8 @@ function Sidebar() {
   useEffect(() => {
     menuItems.forEach((item) => {
       if (item.children) {
-        const isChildActive = item.children.some(
-          (child) => child.path === location.pathname
+        const isChildActive = item.children.some((child) =>
+          location.pathname.startsWith(child.path)
         );
 
         if (isChildActive) {
@@ -95,6 +135,7 @@ function Sidebar() {
     <>
       {/* Mobile Top Button */}
       <button
+        type="button"
         onClick={() => setIsMobileOpen(true)}
         className="lg:hidden fixed top-4 left-4 z-50 bg-gray-900 text-white p-2 rounded-xl shadow-lg"
       >
@@ -105,7 +146,7 @@ function Sidebar() {
       {isMobileOpen && (
         <div
           onClick={() => setIsMobileOpen(false)}
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          className="lg:hidden fixed inset-0 bg-black/60 z-40"
         />
       )}
 
@@ -125,6 +166,7 @@ function Sidebar() {
       >
         {/* Mobile Close Button */}
         <button
+          type="button"
           onClick={() => setIsMobileOpen(false)}
           className="lg:hidden absolute right-4 top-4 text-gray-300 hover:text-white"
         >
@@ -133,6 +175,7 @@ function Sidebar() {
 
         {/* Desktop Collapse Button */}
         <button
+          type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="hidden lg:block absolute -right-3 top-20 bg-gray-800 text-white p-1 rounded-full hover:bg-gray-700"
         >
@@ -186,13 +229,14 @@ function Sidebar() {
             {menuItems.map((item, index) => {
               if (item.children) {
                 const isOpen = openMenus[item.label];
-                const isChildActive = item.children.some(
-                  (c) => c.path === location.pathname
+                const isChildActive = item.children.some((c) =>
+                  location.pathname.startsWith(c.path)
                 );
 
                 return (
                   <li key={index}>
                     <button
+                      type="button"
                       onClick={() => toggleMenu(item.label)}
                       className={`
                         w-full flex items-center rounded-xl transition
@@ -305,6 +349,7 @@ function Sidebar() {
         {/* Logout */}
         <div className="p-4 border-t border-gray-800">
           <button
+            type="button"
             onClick={handleLogout}
             className={`
               flex items-center w-full rounded-xl
