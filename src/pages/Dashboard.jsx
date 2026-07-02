@@ -542,6 +542,9 @@ function Dashboard() {
         note: `Packing List: ${exportStats.totalPackagingCount}`,
         extra: `Export Value: ${formatCurrency(exportStats.shipmentValue)}`,
         color: "from-blue-500 to-cyan-400",
+        bg: "bg-blue-500/10",
+        border: "border-blue-500/20",
+        text: "text-blue-300",
       },
       {
         id: 2,
@@ -552,6 +555,9 @@ function Dashboard() {
         total: exportStats.totalBLDateCount,
         note: `Total: ${exportStats.totalBLDateCount}`,
         color: "from-violet-500 to-purple-400",
+        bg: "bg-violet-500/10",
+        border: "border-violet-500/20",
+        text: "text-violet-300",
       },
       {
         id: 3,
@@ -562,6 +568,9 @@ function Dashboard() {
         total: exportStats.totalShippingDateCount,
         note: `Total: ${exportStats.totalShippingDateCount}`,
         color: "from-cyan-500 to-sky-400",
+        bg: "bg-cyan-500/10",
+        border: "border-cyan-500/20",
+        text: "text-cyan-300",
       },
       {
         id: 4,
@@ -572,6 +581,9 @@ function Dashboard() {
         total: exportStats.totalBankSubmissionDateCount,
         note: `Total: ${exportStats.totalBankSubmissionDateCount}`,
         color: "from-pink-500 to-rose-400",
+        bg: "bg-pink-500/10",
+        border: "border-pink-500/20",
+        text: "text-pink-300",
       },
     ],
     [exportStats]
@@ -612,16 +624,17 @@ function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen w-full bg-slate-950 px-3 py-4 sm:p-5 lg:p-6">
-        <div className="w-full my-12 space-y-5 animate-pulse">
-          <div className="h-36 rounded-3xl bg-slate-800" />
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-            <div className="xl:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map((item) => (
-                <div key={item} className="h-40 rounded-2xl bg-slate-800" />
-              ))}
-            </div>
-            <div className="xl:col-span-4 h-80 rounded-2xl bg-slate-800" />
+      <div className="min-h-screen w-full bg-[#0a0c12] p-4 md:p-6">
+        <div className="max-w-7xl mx-auto space-y-4 animate-pulse">
+          <div className="h-28 rounded-xl bg-[#101827]" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="h-32 rounded-xl bg-[#101827]" />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <div className="h-64 rounded-xl bg-[#101827]" />
+            <div className="h-64 rounded-xl bg-[#101827]" />
           </div>
         </div>
       </div>
@@ -629,228 +642,253 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 text-white px-3 py-4 sm:p-5 lg:p-6">
-      <div className="space-y-5 my-12">
-        <div className="rounded-3xl bg-gradient-to-r from-slate-950 via-blue-950 to-indigo-950 p-5 sm:p-6 border border-white/10 shadow-xl">
-          <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-5">
+    <div className="min-h-screen w-full bg-[#0a0c12] text-white p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4">
+        {/* Header */}
+        <div className="rounded-xl bg-gradient-to-r from-[#101827] via-[#1a1f35] to-[#101827] border border-white/10 p-4 shadow-lg">
+          <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-3">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1 text-xs text-cyan-100 border border-white/10 mb-3">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[9px] font-bold text-blue-300 border border-blue-500/20 mb-1.5">
                 ⚡ Export Intelligence
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-black text-white">
+              <h1 className="text-xl font-black text-white">
                 ExportFlow Dashboard
               </h1>
 
-              <p className="text-slate-300 mt-1 text-sm">
-                API based export document, B/L, shipping, bank submit and realization summary.
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                API based export document, B/L, shipping, bank submit and realization summary
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <HeaderStat label="Total Docs" value={totalDocs} />
-              <HeaderStat label="Pending" value={totalPending} />
-              <HeaderStat label="Realized" value={`${realizationStats.realizedPercent}%`} />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-center">
+                <div className="text-sm font-bold text-white">{totalDocs}</div>
+                <div className="text-[8px] text-slate-400">Total Docs</div>
+              </div>
+              <div className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-center">
+                <div className="text-sm font-bold text-amber-300">{totalPending}</div>
+                <div className="text-[8px] text-slate-400">Pending</div>
+              </div>
+              <div className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-center">
+                <div className="text-sm font-bold text-emerald-300">{realizationStats.realizedPercent}%</div>
+                <div className="text-[8px] text-slate-400">Realized</div>
+              </div>
             </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-3 pt-3 border-t border-white/5">
+            <div className="flex items-center gap-2 text-[10px] text-slate-400">
+              <span>📊 Last updated: {new Date().toLocaleString()}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="rounded-lg bg-white/10 border border-white/10 text-white px-3 py-1.5 text-[10px] font-bold hover:bg-white/15 disabled:opacity-60 transition whitespace-nowrap"
+            >
+              {refreshing ? "⟳ Refreshing..." : "⟳ Refresh"}
+            </button>
           </div>
         </div>
 
         {message && (
-          <div className="rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 px-5 py-3 text-sm font-bold">
-            {message}
+          <div className="rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 px-3 py-2 text-xs font-bold">
+            ⚠️ {message}
           </div>
         )}
 
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="rounded-2xl bg-white/10 border border-white/10 text-white px-5 py-2.5 text-sm font-bold hover:bg-white/15 disabled:opacity-60"
-          >
-            {refreshing ? "Refreshing..." : "Refresh Dashboard"}
-          </button>
+        {/* Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {cards.map((card) => {
+            const percent = card.total
+              ? Math.min(100, Math.round((card.completed / card.total) * 100))
+              : 0;
+
+            return (
+              <div
+                key={card.id}
+                className={`rounded-xl bg-[#101827] border ${card.border} p-3 shadow-lg hover:scale-[1.02] transition-all duration-200`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`h-8 w-8 rounded-lg ${card.bg} flex items-center justify-center text-base`}>
+                      {card.icon}
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-white">{card.title}</h3>
+                      <p className="text-[8px] text-slate-400">Total: {card.total}</p>
+                    </div>
+                  </div>
+                  <span className={`rounded-full ${card.bg} ${card.text} px-1.5 py-0.5 text-[8px] font-bold border ${card.border}`}>
+                    P: {card.pending}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-end mb-2">
+                  <div>
+                    <p className="text-[8px] text-slate-400">Completed</p>
+                    <h2 className="text-xl font-bold text-white">{card.completed}</h2>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[8px] text-slate-400">Progress</p>
+                    <p className="text-xs font-bold text-white">{percent}%</p>
+                  </div>
+                </div>
+
+                {card.extra && (
+                  <p className="text-[9px] font-bold text-white/80 mb-1.5 truncate">
+                    {card.extra}
+                  </p>
+                )}
+
+                <div className="h-1.5 rounded-full bg-white/10 overflow-hidden mb-1.5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r ${card.color}"
+                    style={{ 
+                      width: `${percent}%`,
+                      background: `linear-gradient(to right, ${card.color.split(' ')[0].replace('from-', '')}, ${card.color.split(' ')[1].replace('to-', '')})`
+                    }}
+                  />
+                </div>
+
+                <p className="text-[8px] text-slate-400 border-t border-white/5 pt-1.5">
+                  {card.note}
+                </p>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-          <div className="xl:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {cards.map((card) => {
-              const percent = card.total
-                ? Math.min(100, Math.round((card.completed / card.total) * 100))
-                : 0;
-
-              return (
-                <div
-                  key={card.id}
-                  className={`rounded-2xl bg-gradient-to-br ${card.color} p-4 shadow-lg text-white hover:scale-[1.01] transition`}
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center text-lg">
-                        {card.icon}
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-bold">{card.title}</h3>
-                        <p className="text-xs text-white/80">Total: {card.total}</p>
-                      </div>
-                    </div>
-
-                    <span className="rounded-full bg-white/20 text-white px-2.5 py-1 text-[11px] font-bold">
-                      Pending: {card.pending}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-end mb-3">
-                    <div>
-                      <p className="text-xs text-white/80">Completed</p>
-                      <h2 className="text-2xl font-black">{card.completed}</h2>
-                    </div>
-
-                    <div className="text-right">
-                      <p className="text-xs text-white/80">Progress</p>
-                      <p className="text-sm font-bold">{percent}%</p>
-                    </div>
-                  </div>
-
-                  {card.extra && (
-                    <p className="text-xs font-bold text-white/95 mb-3">
-                      {card.extra}
-                    </p>
-                  )}
-
-                  <div className="h-2 rounded-full bg-white/20 overflow-hidden mb-3">
-                    <div
-                      className="h-full rounded-full bg-white"
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-
-                  <p className="text-xs text-white/80 border-t border-white/20 pt-3">
-                    {card.note}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="xl:col-span-4 rounded-2xl bg-[#1e1b4b] border border-violet-500/40 p-5 shadow-lg text-white">
-            <div className="flex justify-between items-start gap-3 mb-5">
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-xl bg-violet-500/20 flex items-center justify-center text-xl">
+        {/* Realization Card & Charts */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-3">
+          {/* Realization Card */}
+          <div className="xl:col-span-4 rounded-xl bg-[#101827] border border-violet-500/20 p-3 shadow-lg">
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-violet-500/20 flex items-center justify-center text-base">
                   💰
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold">{realizationTracking.title}</h2>
-                  <p className="text-xs text-violet-200 mt-1">
-                    Export value and realization status
-                  </p>
+                  <h2 className="text-sm font-bold text-white">Realization</h2>
+                  <p className="text-[8px] text-violet-300">Export value & status</p>
                 </div>
               </div>
-
-              <span className="rounded-full bg-violet-500/20 text-violet-200 px-3 py-1 text-xs font-bold">
+              <span className="rounded-full bg-violet-500/20 text-violet-200 px-1.5 py-0.5 text-[8px] font-bold">
                 {realizationTracking.trend}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <MoneyBox label="Export" value={realizationTracking.shipment} />
-              <MoneyBox label="Expected" value={realizationTracking.expected} />
-              <MoneyBox label="Realized" value={realizationTracking.realized} />
-              <MoneyBox label="Pending" value={realizationTracking.pending} />
+            <div className="grid grid-cols-2 gap-1.5 mb-3">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+                <p className="text-[8px] text-slate-400">Export</p>
+                <h3 className="text-xs font-bold text-white">{realizationTracking.shipment}</h3>
+              </div>
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+                <p className="text-[8px] text-slate-400">Expected</p>
+                <h3 className="text-xs font-bold text-blue-300">{realizationTracking.expected}</h3>
+              </div>
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+                <p className="text-[8px] text-slate-400">Realized</p>
+                <h3 className="text-xs font-bold text-emerald-300">{realizationTracking.realized}</h3>
+              </div>
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+                <p className="text-[8px] text-slate-400">Pending</p>
+                <h3 className="text-xs font-bold text-amber-300">{realizationTracking.pending}</h3>
+              </div>
             </div>
 
-            <div className="mb-4">
-              <div className="h-2.5 rounded-full bg-slate-800 overflow-hidden">
+            <div className="mb-3">
+              <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-violet-500"
+                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-400"
                   style={{ width: `${realizationTracking.percentage}%` }}
                 />
               </div>
-
-              <p className="text-center text-violet-200 text-xs mt-2">
+              <p className="text-center text-[9px] text-violet-300 mt-1">
                 {realizationTracking.percentage}% Realized
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 border-t border-violet-500/20 pt-4">
-              <MiniBox label="Upcoming" value={realizationTracking.upcoming} />
-              <MiniBox label="Overdue" value={realizationTracking.overdue} />
+            <div className="grid grid-cols-2 gap-1.5 border-t border-violet-500/20 pt-2">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+                <p className="text-[8px] text-slate-400">Upcoming</p>
+                <h3 className="text-xs font-bold text-orange-300">{realizationTracking.upcoming}</h3>
+              </div>
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+                <p className="text-[8px] text-slate-400">Overdue</p>
+                <h3 className="text-xs font-bold text-red-300">{realizationTracking.overdue}</h3>
+              </div>
             </div>
+          </div>
+
+          {/* Charts */}
+          <div className="xl:col-span-8 grid grid-cols-1 gap-3">
+            <ChartCard title="Realization Value Overview">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={monthlyData}>
+                  <defs>
+                    <linearGradient id="valueGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="month" stroke="#94a3b8" tick={{ fontSize: 9 }} />
+                  <YAxis stroke="#94a3b8" tickFormatter={(value) => `${Math.round(value)}K`} tick={{ fontSize: 9 }} />
+                  <Tooltip formatter={(value) => formatCurrency(Number(value) * 1000)} />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#3b82f6"
+                    fill="url(#valueGradient)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-          <ChartCard title="📈 Realization Value Overview">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlyData}>
-                <defs>
-                  <linearGradient id="valueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-
-                <CartesianGrid strokeDasharray="3 3" stroke="#243247" />
-                <XAxis dataKey="month" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#94a3b8" tickFormatter={(value) => `${Math.round(value)}K`} />
-                <Tooltip formatter={(value) => formatCurrency(Number(value) * 1000)} />
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#3b82f6"
-                  fill="url(#valueGradient)"
-                  strokeWidth={3}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="📦 Document Pipeline">
+        {/* Document Pipeline Chart */}
+        <div className="rounded-xl bg-[#101827] border border-white/10 p-3 shadow-lg">
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <h2 className="text-sm font-bold text-white">📦 Document Pipeline</h2>
+              <p className="text-[8px] text-slate-400">Complete, Pending breakdown by category</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-[8px] text-emerald-300">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" /> Complete
+              </span>
+              <span className="flex items-center gap-1 text-[8px] text-orange-300">
+                <span className="h-2 w-2 rounded-full bg-orange-500" /> Pending
+              </span>
+            </div>
+          </div>
+          <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={cards}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#243247" />
-                <XAxis dataKey="title" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#94a3b8" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="title" stroke="#94a3b8" tick={{ fontSize: 9 }} />
+                <YAxis stroke="#94a3b8" tick={{ fontSize: 9 }} />
                 <Tooltip />
-                <Bar dataKey="total" fill="#334155" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="completed" fill="#22c55e" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="pending" fill="#f97316" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="completed" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="pending" fill="#f97316" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </ChartCard>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-const HeaderStat = ({ label, value }) => (
-  <div className="rounded-2xl bg-white/10 border border-white/10 px-4 py-3 text-center">
-    <div className="text-lg font-black text-white">{value}</div>
-    <div className="text-[10px] text-slate-300">{label}</div>
-  </div>
-);
-
-const MoneyBox = ({ label, value }) => (
-  <div className="rounded-xl bg-slate-950/70 border border-white/10 px-4 py-3 text-center">
-    <p className="text-[11px] text-slate-400">{label}</p>
-    <h3 className="text-base font-black text-white mt-1">{value}</h3>
-  </div>
-);
-
-const MiniBox = ({ label, value }) => (
-  <div className="rounded-xl bg-slate-950/70 border border-white/10 p-3 text-center">
-    <p className="text-[11px] text-slate-400">{label}</p>
-    <h3 className="text-sm font-black text-white mt-1">{value}</h3>
-  </div>
-);
-
 const ChartCard = ({ title, children }) => (
-  <div className="rounded-2xl bg-[#101b2d] border border-white/10 p-5 shadow-lg">
-    <h2 className="text-lg font-bold text-white mb-1">{title}</h2>
-    <p className="text-xs text-slate-400 mb-4">Live API dashboard overview</p>
-    <div className="h-72">{children}</div>
+  <div className="rounded-xl bg-[#101827] border border-white/10 p-3 shadow-lg">
+    <h2 className="text-sm font-bold text-white mb-0.5">{title}</h2>
+    <p className="text-[8px] text-slate-400 mb-2">Live API dashboard overview</p>
+    <div className="h-52">{children}</div>
   </div>
 );
 

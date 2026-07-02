@@ -296,7 +296,6 @@ function RealizationPage() {
 
     if (assignedDepartments.length) return assignedDepartments;
 
-    // No assigned department means unrestricted/admin, so call API without depName.
     return [];
   };
 
@@ -838,7 +837,7 @@ function RealizationPage() {
     }
 
     return (
-      <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#0f172a]">
+      <div className="overflow-x-auto rounded-xl border border-white/10 bg-[#0f172a]">
         <table className="min-w-full">
           <thead className="bg-[#16213d]">
             <tr>
@@ -874,7 +873,7 @@ function RealizationPage() {
     if (!rows.length) return <EmptyModalCard text="No realized data found" />;
 
     return (
-      <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#0f172a]">
+      <div className="overflow-x-auto rounded-xl border border-white/10 bg-[#0f172a]">
         <table className="min-w-full">
           <thead className="bg-[#123224]">
             <tr>
@@ -908,10 +907,10 @@ function RealizationPage() {
       type === "upcoming" ? setUpcomingViewMode : setOverdueViewMode;
 
     return (
-      <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-[#111827] p-1">
+      <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl border border-white/10 bg-[#111827] p-1">
         {[
-          { key: "deptBuyer", label: "Dept / Buyer Wise" },
-          { key: "month", label: "Month Wise" },
+          { key: "deptBuyer", label: "Dept / Buyer" },
+          { key: "month", label: "Month" },
         ].map((option) => {
           const isActive = activeMode === option.key;
 
@@ -920,7 +919,7 @@ function RealizationPage() {
               key={option.key}
               type="button"
               onClick={() => setActiveMode(option.key)}
-              className={`rounded-xl px-4 py-2 text-xs font-black transition ${
+              className={`rounded-lg px-3 py-1.5 text-[10px] font-black transition ${
                 isActive
                   ? "bg-blue-600 text-white"
                   : "text-slate-400 hover:bg-white/5"
@@ -938,16 +937,14 @@ function RealizationPage() {
     const searchValue = getRealizationSearchText(type);
 
     return (
-      <div className="mb-4 flex flex-col sm:flex-row gap-2">
+      <div className="mb-3 flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
-            🔍
-          </span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
           <input
             value={searchValue}
             onChange={(event) => updateRealizationSearchText(type, event.target.value)}
             placeholder="Search month, department, buyer, code..."
-            className="w-full rounded-2xl bg-[#0f172a] border border-white/10 pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg bg-[#0f172a] border border-white/10 pl-7 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
@@ -955,9 +952,9 @@ function RealizationPage() {
           <button
             type="button"
             onClick={() => updateRealizationSearchText(type, "")}
-            className="rounded-2xl bg-pink-500/10 border border-pink-500/30 px-4 py-3 text-xs font-black text-pink-300"
+            className="rounded-lg bg-pink-500/10 border border-pink-500/30 px-3 py-1.5 text-[10px] font-black text-pink-300"
           >
-            Clear
+            ✕ Clear
           </button>
         ) : null}
       </div>
@@ -978,7 +975,7 @@ function RealizationPage() {
     const maxValue = Math.max(...filteredRows.map((item) => item.value), 1);
 
     return (
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-2.5">
         {filteredRows.map((item, index) => {
           const percentage = Math.min(100, Math.round((item.value / maxValue) * 100));
           const icon = activeMode === "month" ? config.icon : groupMeta.icon;
@@ -998,69 +995,65 @@ function RealizationPage() {
                   groupMeta,
                 })
               }
-              className={`relative overflow-hidden rounded-2xl border bg-[#111827] p-4 text-left shadow-xl ${
+              className={`relative overflow-hidden rounded-xl border bg-[#111827] p-3 text-left shadow-lg ${
                 canOpenDetails ? "hover:bg-[#162033]" : "cursor-default"
               }`}
               style={{
-                borderLeftWidth: 4,
+                borderLeftWidth: 3,
                 borderLeftColor: config.accent,
                 borderColor: "rgba(148,163,184,0.12)",
               }}
             >
               <div
-                className="absolute -top-8 -right-8 h-24 w-24 rounded-full"
+                className="absolute -top-6 -right-6 h-16 w-16 rounded-full"
                 style={{ backgroundColor: config.softBg }}
               />
 
-              <div className="relative flex items-start gap-3 mb-4">
+              <div className="relative flex items-start gap-2 mb-2">
                 <div
-                  className="h-10 w-10 rounded-xl flex items-center justify-center text-lg"
+                  className="h-7 w-7 rounded-lg flex items-center justify-center text-sm"
                   style={{ backgroundColor: config.softBg }}
                 >
                   {icon}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] uppercase font-black text-slate-400">
+                  <p className="text-[8px] uppercase font-black text-slate-400">
                     {config.badge} {groupMeta.label}
                   </p>
 
                   {activeMode === "deptBuyer" ? (
                     <>
-                      <p className="text-[10px] mt-2 uppercase font-black text-slate-500">
-                        Department
-                      </p>
-                      <h4 className="text-sm font-black text-white">
+                      <p className="text-[8px] mt-1 uppercase font-black text-slate-500">Dept</p>
+                      <h4 className="text-xs font-bold text-white truncate">
                         {item.departmentName || "-"}
                       </h4>
-                      <p className="text-[10px] mt-2 uppercase font-black text-slate-500">
-                        Buyer
-                      </p>
-                      <h4 className="text-sm font-black text-white">
+                      <p className="text-[8px] mt-1 uppercase font-black text-slate-500">Buyer</p>
+                      <h4 className="text-xs font-bold text-white truncate">
                         {item.buyerName || "-"}
                       </h4>
                     </>
                   ) : (
-                    <h4 className="mt-1 text-sm font-black text-white">
+                    <h4 className="mt-0.5 text-xs font-bold text-white truncate">
                       {item.label || "-"}
                     </h4>
                   )}
 
                   {activeMode !== "month" && item.code ? (
-                    <p className="mt-2 text-xs font-bold text-slate-400">
+                    <p className="mt-1 text-[9px] font-bold text-slate-400 truncate">
                       {groupMeta.codeLabel}: {item.code}
                     </p>
                   ) : null}
 
                   {activeMode !== "month" && item.monthsText ? (
-                    <p className="mt-1 text-xs font-bold text-slate-400">
+                    <p className="mt-0.5 text-[8px] font-bold text-slate-400 truncate">
                       Months: {item.monthsText}
                     </p>
                   ) : null}
                 </div>
 
                 <span
-                  className="rounded-full border px-2 py-1 text-[10px] font-black"
+                  className="rounded-full border px-1.5 py-0.5 text-[8px] font-black flex-shrink-0"
                   style={{
                     backgroundColor: config.softBg,
                     borderColor: `${config.accent}55`,
@@ -1071,12 +1064,12 @@ function RealizationPage() {
                 </span>
               </div>
 
-              <p className="relative mb-3 text-lg font-black" style={{ color: config.accent }}>
+              <p className="relative mb-2 text-sm font-bold" style={{ color: config.accent }}>
                 {money(item.value)}
               </p>
 
-              <div className="relative flex items-center gap-3">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#243041]">
+              <div className="relative flex items-center gap-2">
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#243041]">
                   <div
                     className="h-full rounded-full"
                     style={{
@@ -1085,14 +1078,14 @@ function RealizationPage() {
                     }}
                   />
                 </div>
-                <span className="text-[10px] font-black text-slate-300">
+                <span className="text-[8px] font-bold text-slate-300">
                   {percentage}%
                 </span>
               </div>
 
               {canOpenDetails ? (
-                <p className="relative mt-3 text-right text-xs font-black text-blue-400">
-                  Tap to view month details
+                <p className="relative mt-1.5 text-right text-[9px] font-bold text-blue-400">
+                  View details →
                 </p>
               ) : null}
             </button>
@@ -1249,36 +1242,11 @@ function RealizationPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#070b14] text-slate-100 px-3 py-4 sm:p-5 lg:p-6">
-      <div className="w-full my-12 space-y-5">
-        {/* Header */}
-        <div className="rounded-3xl bg-[#101827] border border-white/10 p-4 sm:p-5 shadow-2xl">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white">
-                Realization
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                Expected, realized, pending, upcoming and overdue realization summary.
-              </p>
-              <p className="text-[11px] text-slate-500 mt-2">
-                Last updated: {dashboardStats.lastUpdated}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={fetchRealizationDashboardStats}
-              disabled={dashboardLoading}
-              className="rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {dashboardLoading ? "Loading..." : "Refresh"}
-            </button>
-          </div>
-        </div>
+    <div className="min-h-screen w-full bg-[#070b14] text-slate-100 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4">
 
         {/* Main one-row web KPI cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
           {chartItems.map((item) => {
             const percentage = Math.min(
               100,
@@ -1290,31 +1258,31 @@ function RealizationPage() {
                 key={item.key}
                 type="button"
                 onClick={() => openCardModal(item.key)}
-                className={`min-h-[155px] rounded-3xl border ${item.border} ${item.bg} p-4 text-left shadow-2xl hover:bg-white/10 transition`}
+                className={`min-h-[130px] rounded-xl border ${item.border} ${item.bg} p-3 text-left shadow-lg hover:bg-white/10 transition`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="h-11 w-11 rounded-2xl bg-white/10 flex items-center justify-center text-xl">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center text-sm">
                     {item.icon}
                   </div>
 
-                  <span className={`rounded-full border ${item.border} bg-white/5 px-2.5 py-1 text-[10px] font-black ${item.text}`}>
+                  <span className={`rounded-full border ${item.border} bg-white/5 px-1.5 py-0.5 text-[8px] font-black ${item.text}`}>
                     {percentage}%
                   </span>
                 </div>
 
-                <p className="mt-4 text-[11px] font-black uppercase text-slate-400">
+                <p className="mt-2 text-[9px] font-black uppercase text-slate-400">
                   {item.label}
                 </p>
 
-                <h2 className={`mt-2 text-xl 2xl:text-2xl font-black ${item.text} break-words`}>
+                <h2 className={`mt-1 text-base font-bold ${item.text} break-words`}>
                   {money(item.value)}
                 </h2>
 
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-0.5 text-[9px] text-slate-400">
                   {Number(item.docs || 0).toLocaleString()} documents
                 </p>
 
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#1e293b]">
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#1e293b]">
                   <div
                     className="h-full rounded-full"
                     style={{
@@ -1329,26 +1297,26 @@ function RealizationPage() {
         </div>
 
         {/* Compact web chart section: bar chart + pie chart side by side */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-3">
-          <div className="xl:col-span-7 rounded-3xl bg-[#101620] border border-white/10 p-4 shadow-2xl">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-2.5">
+          <div className="xl:col-span-7 rounded-xl bg-[#101620] border border-white/10 p-3 shadow-lg">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 mb-3">
               <div>
-                <h2 className="text-lg font-black text-white">
+                <h2 className="text-sm font-bold text-white">
                   Realization Value Comparison
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Compact bar chart based on highest value.
+                <p className="text-[9px] text-slate-400 mt-0.5">
+                  Compact bar chart based on highest value
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-                <span className="text-xs font-black text-emerald-300">
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1">
+                <span className="text-[10px] font-bold text-emerald-300">
                   Realized: {dashboardStats.realizedPercent}%
                 </span>
               </div>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {chartItems.map((item) => {
                 const percentage = Math.min(
                   100,
@@ -1360,25 +1328,25 @@ function RealizationPage() {
                     key={`${item.key}-bar`}
                     type="button"
                     onClick={() => openCardModal(item.key)}
-                    className="w-full rounded-2xl bg-[#0f172a] border border-white/10 px-3 py-2.5 hover:bg-[#111c31] transition"
+                    className="w-full rounded-lg bg-[#0f172a] border border-white/10 px-2.5 py-2 hover:bg-[#111c31] transition"
                   >
-                    <div className="grid grid-cols-1 lg:grid-cols-[140px_1fr_145px] gap-2 lg:items-center text-left">
-                      <div className="flex items-center gap-2">
-                        <span className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center">
+                    <div className="grid grid-cols-1 lg:grid-cols-[100px_1fr_100px] gap-1.5 lg:items-center text-left">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-6 w-6 rounded-lg bg-white/10 flex items-center justify-center text-xs">
                           {item.icon}
                         </span>
                         <div>
-                          <p className="text-xs font-black text-white">
+                          <p className="text-[10px] font-bold text-white">
                             {item.label}
                           </p>
-                          <p className="text-[10px] text-slate-500">
+                          <p className="text-[8px] text-slate-500">
                             {Number(item.docs || 0).toLocaleString()} docs
                           </p>
                         </div>
                       </div>
 
                       <div>
-                        <div className="h-3 overflow-hidden rounded-full bg-slate-800">
+                        <div className="h-2 overflow-hidden rounded-full bg-slate-800">
                           <div
                             className="h-full rounded-full"
                             style={{
@@ -1390,11 +1358,11 @@ function RealizationPage() {
                       </div>
 
                       <div className="lg:text-right">
-                        <p className={`text-xs font-black ${item.text}`}>
+                        <p className={`text-[10px] font-bold ${item.text}`}>
                           {money(item.value)}
                         </p>
-                        <p className="text-[10px] text-slate-500">
-                          {percentage}% of max
+                        <p className="text-[8px] text-slate-500">
+                          {percentage}%
                         </p>
                       </div>
                     </div>
@@ -1404,27 +1372,27 @@ function RealizationPage() {
             </div>
           </div>
 
-          <div className="xl:col-span-5 rounded-3xl bg-[#101620] border border-white/10 p-4 shadow-2xl">
-            <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="xl:col-span-5 rounded-xl bg-[#101620] border border-white/10 p-3 shadow-lg">
+            <div className="flex items-start justify-between gap-2 mb-3">
               <div>
-                <h2 className="text-lg font-black text-white">
+                <h2 className="text-sm font-bold text-white">
                   Value Share
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Pie chart style share by value.
+                <p className="text-[9px] text-slate-400 mt-0.5">
+                  Pie chart style share by value
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-white/5 px-3 py-2 text-right">
-                <p className="text-xs font-black text-white">
+              <div className="rounded-lg bg-white/5 px-2 py-1 text-right">
+                <p className="text-[10px] font-bold text-white">
                   {money(pieTotalValue)}
                 </p>
-                <p className="text-[10px] text-slate-500">Total chart value</p>
+                <p className="text-[8px] text-slate-500">Total</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-[190px_1fr] gap-4 items-center">
-              <div className="mx-auto h-44 w-44 rounded-full p-3"
+            <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 items-center">
+              <div className="mx-auto h-36 w-36 rounded-full p-2.5"
                 style={{
                   background: `conic-gradient(
                     #3b82f6 0deg ${(dashboardStats.totalAmount / pieTotalValue) * 360}deg,
@@ -1435,19 +1403,19 @@ function RealizationPage() {
                 }}
               >
                 <div className="h-full w-full rounded-full bg-[#101620] flex flex-col items-center justify-center text-center">
-                  <p className="text-[10px] font-black uppercase text-slate-500">
+                  <p className="text-[8px] font-bold uppercase text-slate-500">
                     Pending
                   </p>
-                  <p className="text-lg font-black text-amber-300">
+                  <p className="text-sm font-bold text-amber-300">
                     {compactMoney(pendingAmount)}
                   </p>
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-[8px] text-slate-500">
                     Up {pendingUpcomingPercent}% / Ov {pendingOverduePercent}%
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {chartItems.map((item) => {
                   const share = Math.round((Number(item.value || 0) / pieTotalValue) * 100);
 
@@ -1456,23 +1424,23 @@ function RealizationPage() {
                       key={`${item.key}-legend`}
                       type="button"
                       onClick={() => openCardModal(item.key)}
-                      className="w-full flex items-center justify-between gap-3 rounded-2xl bg-[#0f172a] border border-white/10 px-3 py-2 hover:bg-[#111c31] transition"
+                      className="w-full flex items-center justify-between gap-2 rounded-lg bg-[#0f172a] border border-white/10 px-2.5 py-1.5 hover:bg-[#111c31] transition"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <span
-                          className="h-3 w-3 rounded-full"
+                          className="h-2.5 w-2.5 rounded-full"
                           style={{ backgroundColor: item.color }}
                         />
-                        <span className="text-xs font-black text-white">
+                        <span className="text-[10px] font-bold text-white">
                           {item.label}
                         </span>
                       </div>
 
                       <div className="text-right">
-                        <p className={`text-xs font-black ${item.text}`}>
+                        <p className={`text-[10px] font-bold ${item.text}`}>
                           {share}%
                         </p>
-                        <p className="text-[10px] text-slate-500">
+                        <p className="text-[8px] text-slate-500">
                           {compactMoney(item.value)}
                         </p>
                       </div>
@@ -1485,44 +1453,44 @@ function RealizationPage() {
         </div>
 
         {/* Pending breakdown under same design */}
-        <div className="rounded-3xl bg-[#101620] border border-white/10 p-4 shadow-2xl">
-          <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="rounded-xl bg-[#101620] border border-white/10 p-3 shadow-lg">
+          <div className="mb-3 flex items-center justify-between border-b border-white/10 pb-3">
             <div>
-              <p className="text-[11px] font-black uppercase text-slate-300">
+              <p className="text-[9px] font-bold uppercase text-slate-300">
                 Pending = Upcoming + Overdue
               </p>
-              <h2 className="mt-1 text-2xl sm:text-3xl font-black text-white">
+              <h2 className="mt-0.5 text-xl font-bold text-white">
                 {money(pendingAmount)}
               </h2>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-0.5 text-[9px] text-slate-400">
                 Pending amount is divided into upcoming and overdue
               </p>
             </div>
 
-            <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-2xl">
+            <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-base">
               ⏳
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             <button
               type="button"
               onClick={() => setActiveModal("upcoming")}
-              className="rounded-3xl bg-[#2d210f] border border-amber-400/40 p-5 text-left hover:bg-[#3b2b13] transition"
+              className="rounded-xl bg-[#2d210f] border border-amber-400/40 p-3 text-left hover:bg-[#3b2b13] transition"
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs font-black uppercase text-slate-400">
+                  <p className="text-[9px] font-bold uppercase text-slate-400">
                     Upcoming
                   </p>
-                  <h3 className="mt-2 text-2xl font-black text-amber-300">
+                  <h3 className="mt-1 text-base font-bold text-amber-300">
                     {money(dashboardStats.expectedAmount)}
                   </h3>
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="mt-1 text-[9px] text-slate-400">
                     {dashboardStats.upcomingDocumentCount.toLocaleString()} documents
                   </p>
                 </div>
-                <div className="h-11 w-11 rounded-2xl bg-white/10 flex items-center justify-center text-xl">
+                <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center text-sm">
                   🗓️
                 </div>
               </div>
@@ -1531,21 +1499,21 @@ function RealizationPage() {
             <button
               type="button"
               onClick={() => setActiveModal("overdue")}
-              className="rounded-3xl bg-[#2d1519] border border-red-400/40 p-5 text-left hover:bg-[#3b1a20] transition"
+              className="rounded-xl bg-[#2d1519] border border-red-400/40 p-3 text-left hover:bg-[#3b1a20] transition"
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs font-black uppercase text-slate-400">
+                  <p className="text-[9px] font-bold uppercase text-slate-400">
                     Overdue
                   </p>
-                  <h3 className="mt-2 text-2xl font-black text-red-300">
+                  <h3 className="mt-1 text-base font-bold text-red-300">
                     {money(dashboardStats.overdueAmount)}
                   </h3>
-                  <p className="mt-2 text-xs text-slate-400">
+                  <p className="mt-1 text-[9px] text-slate-400">
                     {dashboardStats.overdueDocumentCount.toLocaleString()} documents
                   </p>
                 </div>
-                <div className="h-11 w-11 rounded-2xl bg-white/10 flex items-center justify-center text-xl">
+                <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center text-sm">
                   ⏰
                 </div>
               </div>
@@ -1554,18 +1522,18 @@ function RealizationPage() {
         </div>
 
         {dashboardLoading && (
-          <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm font-bold text-blue-200">
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-bold text-blue-200">
             Loading realization data...
           </div>
         )}
       </div>
 
       {activeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-3">
-          <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0b1220] shadow-2xl">
-            <div className="flex items-center justify-between gap-4 border-b border-white/10 bg-[#111c35] px-5 py-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm">
+          <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1220] shadow-2xl">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
               <div>
-                <h3 className="text-lg font-black text-white">
+                <h3 className="text-sm font-bold text-white">
                   {activeModal === "expectedTotal"
                     ? "Expected Amount Details"
                     : activeModal === "overdue"
@@ -1576,7 +1544,7 @@ function RealizationPage() {
                     ? "Upcoming Details"
                     : "Realization Details"}
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-[10px] text-slate-400 mt-0.5">
                   Payment realization information
                 </p>
               </div>
@@ -1584,34 +1552,34 @@ function RealizationPage() {
               <button
                 type="button"
                 onClick={closeModal}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 text-red-300 hover:bg-red-500/20"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-300 hover:bg-red-500/20"
               >
                 ✕
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-3">
               {renderModalContent()}
-              <div className="h-8" />
+              <div className="h-4" />
             </div>
           </div>
         </div>
       )}
 
       {selectedRealizationGroup && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 p-3">
-          <div className="w-full max-w-3xl max-h-[86vh] overflow-hidden rounded-3xl border border-white/10 bg-[#0b1220] shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-[#111c35] p-5">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm">
+          <div className="w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-xl border border-white/10 bg-[#0b1220] shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-white/10 bg-[#111c35] p-3">
               <div className="min-w-0">
-                <h3 className="text-lg font-black text-white">
+                <h3 className="text-sm font-bold text-white truncate">
                   {selectedRealizationGroup.label || "-"}
                 </h3>
-                <p className="text-xs font-bold text-slate-400 mt-1">
+                <p className="text-[10px] font-bold text-slate-400 mt-0.5">
                   {selectedRealizationGroup.groupLabel} wise month details
                 </p>
 
                 {selectedRealizationGroup.code ? (
-                  <p className="text-xs font-black text-blue-300 mt-1">
+                  <p className="text-[10px] font-bold text-blue-300 mt-0.5 truncate">
                     {selectedRealizationGroup.codeLabel}: {selectedRealizationGroup.code}
                   </p>
                 ) : null}
@@ -1620,32 +1588,30 @@ function RealizationPage() {
               <button
                 type="button"
                 onClick={() => setSelectedRealizationGroup(null)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 text-red-300 hover:bg-red-500/20"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-300 hover:bg-red-500/20 flex-shrink-0"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-4">
-              <div className="rounded-2xl bg-[#111827] border border-white/10 p-4 mb-4">
-                <p className="text-xl font-black text-white">
+            <div className="p-3">
+              <div className="rounded-lg bg-[#111827] border border-white/10 p-3 mb-3">
+                <p className="text-lg font-bold text-white">
                   {money(groupDetailTotalValue)}
                 </p>
-                <p className="text-xs font-black uppercase text-slate-400 mt-1">
+                <p className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">
                   Total Value
                 </p>
               </div>
 
-              <div className="mb-4 flex flex-col sm:flex-row gap-2">
+              <div className="mb-3 flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
-                    🔍
-                  </span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
                   <input
                     value={groupDetailSearchText}
                     onChange={(e) => setGroupDetailSearchText(e.target.value)}
                     placeholder="Search month or value..."
-                    className="w-full rounded-2xl bg-[#111827] border border-white/10 pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-lg bg-[#111827] border border-white/10 pl-7 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -1653,14 +1619,14 @@ function RealizationPage() {
                   <button
                     type="button"
                     onClick={() => setGroupDetailSearchText("")}
-                    className="rounded-2xl bg-pink-500/10 border border-pink-500/30 px-4 py-3 text-xs font-black text-pink-300"
+                    className="rounded-lg bg-pink-500/10 border border-pink-500/30 px-3 py-1.5 text-[10px] font-bold text-pink-300"
                   >
-                    Clear
+                    ✕ Clear
                   </button>
                 ) : null}
               </div>
 
-              <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-white/10 bg-[#0f172a]">
+              <div className="max-h-[350px] overflow-y-auto rounded-lg border border-white/10 bg-[#0f172a]">
                 <table className="min-w-full">
                   <thead className="sticky top-0 bg-[#16213d]">
                     <tr>
@@ -1683,7 +1649,7 @@ function RealizationPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="2" className="px-4 py-10 text-center text-sm text-slate-400">
+                        <td colSpan="2" className="px-3 py-8 text-center text-sm text-slate-400">
                           No matching month found
                         </td>
                       </tr>
@@ -1702,46 +1668,30 @@ function RealizationPage() {
 function ModalSummaryCard({ title, value, subtitle, icon, color }) {
   return (
     <div
-      className="mb-4 flex items-center gap-4 rounded-3xl bg-[#111827] border p-4"
+      className="mb-3 flex items-center gap-3 rounded-xl bg-[#111827] border p-3"
       style={{ borderColor: `${color}55` }}
     >
       <div
-        className="h-14 w-14 rounded-2xl flex items-center justify-center text-2xl"
+        className="h-10 w-10 rounded-lg flex items-center justify-center text-base"
         style={{ backgroundColor: `${color}22` }}
       >
         {icon}
       </div>
 
       <div className="min-w-0">
-        <p className="text-xs font-black uppercase text-slate-400">{title}</p>
-        <h3 className="mt-1 text-xl sm:text-2xl font-black" style={{ color }}>
+        <p className="text-[9px] font-bold uppercase text-slate-400">{title}</p>
+        <h3 className="mt-0.5 text-base font-bold" style={{ color }}>
           {value}
         </h3>
-        <p className="mt-1 text-xs text-slate-300">{subtitle}</p>
+        <p className="mt-0.5 text-[9px] text-slate-300">{subtitle}</p>
       </div>
-    </div>
-  );
-}
-
-function MiniStat({ label, value, color }) {
-  const classes = {
-    blue: "bg-blue-500/10 border-blue-500/25 text-blue-300",
-    emerald: "bg-emerald-500/10 border-emerald-500/25 text-emerald-300",
-    amber: "bg-amber-500/10 border-amber-500/25 text-amber-300",
-    red: "bg-red-500/10 border-red-500/25 text-red-300",
-  };
-
-  return (
-    <div className={`rounded-2xl border p-4 ${classes[color] || classes.blue}`}>
-      <p className="text-[10px] font-black uppercase text-slate-400">{label}</p>
-      <p className="mt-1 text-xl font-black text-white">{value}</p>
     </div>
   );
 }
 
 function EmptyModalCard({ text }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-10 text-center text-sm font-bold text-slate-400">
+    <div className="rounded-lg border border-white/10 bg-[#0f172a] p-6 text-center text-xs font-bold text-slate-400">
       {text}
     </div>
   );
@@ -1749,7 +1699,7 @@ function EmptyModalCard({ text }) {
 
 function Th({ children }) {
   return (
-    <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-slate-300">
+    <th className="px-3 py-2 text-left text-[9px] font-bold uppercase tracking-wide text-slate-300">
       {children}
     </th>
   );
@@ -1758,11 +1708,11 @@ function Th({ children }) {
 function Td({ children, strong, value }) {
   return (
     <td
-      className={`px-4 py-4 text-sm ${
+      className={`px-3 py-2.5 text-xs ${
         strong
-          ? "font-black text-white"
+          ? "font-bold text-white"
           : value
-          ? "font-black text-emerald-300"
+          ? "font-bold text-emerald-300"
           : "font-bold text-slate-300"
       }`}
     >

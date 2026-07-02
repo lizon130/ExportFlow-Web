@@ -273,9 +273,14 @@ function UsersTable() {
 
   const columns = useMemo(
     () => [
-      {
+     {
         header: "#",
-        cell: ({ row }) => row.index + 1,
+        cell: ({ row }) => (
+          <span style={{ color: "white" }}>
+            {row.index + 1}
+          </span>
+        ),
+        size: 40,
       },
       {
         header: "User",
@@ -285,57 +290,58 @@ function UsersTable() {
           const initials = user.userName?.slice(0, 2).toUpperCase();
 
           return (
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center text-white font-bold">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                 {initials}
               </div>
 
-              <div>
-                <div className="font-bold text-slate-800">{user.userName}</div>
-                <div className="text-xs text-slate-400 break-all">
-                  {user.email}
-                </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-white truncate">{user.userName}</div>
+                <div className="text-[9px] text-slate-400 truncate">{user.email}</div>
               </div>
             </div>
           );
         },
       },
       {
-        header: "Created At",
+        header: "Created",
         accessorKey: "createdAt",
         cell: (info) => (
-          <span className="text-sm text-slate-500">
+          <span className="text-[10px] text-slate-400">
             {info.getValue()
               ? new Date(info.getValue()).toLocaleDateString()
               : "-"}
           </span>
         ),
+        size: 100,
       },
       {
         header: "Status",
         accessorKey: "status",
         cell: (info) => (
           <span
-            className={`px-3 py-1 rounded-full text-xs font-bold ${
+            className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
               info.getValue() === "Active"
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
+                ? "bg-emerald-500/20 text-emerald-300"
+                : "bg-red-500/20 text-red-300"
             }`}
           >
             {info.getValue()}
           </span>
         ),
+        size: 80,
       },
       {
-        header: "Actions",
+        header: "Action",
         cell: ({ row }) => (
           <button
             onClick={() => fetchUserProfile(row.original.recId)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 text-xs font-bold shadow-lg transition"
+            className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-[9px] font-bold transition"
           >
-            View Profile
+            Profile
           </button>
         ),
+        size: 80,
       },
     ],
     []
@@ -364,93 +370,99 @@ function UsersTable() {
   });
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-100 via-indigo-50 to-purple-100 px-3 py-4 sm:p-5 lg:p-6">
-      <div className="w-full my-12">
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-slate-950 via-indigo-950 to-purple-950 p-5 sm:p-8 mb-5 sm:mb-6 shadow-2xl">
-          <div className="absolute -top-20 -right-20 h-60 w-60 rounded-full bg-purple-500/30 blur-3xl" />
-          <div className="absolute -bottom-24 -left-20 h-60 w-60 rounded-full bg-indigo-500/30 blur-3xl" />
+    <div className="min-h-screen w-full bg-[#0a0c12] p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4">
+        {/* Header */}
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#101827] via-[#1a1f35] to-[#101827] p-4 shadow-lg border border-white/10">
+          <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-purple-500/20 blur-2xl" />
+          <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-indigo-500/20 blur-2xl" />
 
-          <div className="relative flex flex-col lg:flex-row justify-between lg:items-center gap-6">
+          <div className="relative flex flex-col lg:flex-row justify-between lg:items-center gap-3">
             <div>
-              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/10 rounded-full px-4 py-1 text-xs text-indigo-100 mb-4">
+              <div className="inline-flex items-center gap-1.5 bg-white/10 border border-white/10 rounded-full px-2.5 py-0.5 text-[9px] text-indigo-200 font-bold mb-1.5">
                 🔐 User Access Control
               </div>
 
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white">
+              <h1 className="text-xl font-black text-white">
                 User Management
               </h1>
 
-              <p className="text-indigo-100 mt-2 text-sm sm:text-base">
-                Create users and manage roles, profile, departments and buyers.
+              <p className="text-[10px] text-indigo-200/60 mt-0.5">
+                Create users and manage roles, profile, departments and buyers
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              <InfoBox value={users.length} label="Users" />
-              <InfoBox value={roles.length} label="Roles" />
-              <InfoBox value={allDepartments.length} label="Departments" />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-white/10 backdrop-blur rounded-lg px-3 py-1.5 border border-white/10 text-center">
+                <div className="text-sm font-bold text-white">{users.length}</div>
+                <div className="text-[8px] text-indigo-200">Users</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-lg px-3 py-1.5 border border-white/10 text-center">
+                <div className="text-sm font-bold text-white">{roles.length}</div>
+                <div className="text-[8px] text-indigo-200">Roles</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-lg px-3 py-1.5 border border-white/10 text-center">
+                <div className="text-sm font-bold text-white">{allDepartments.length}</div>
+                <div className="text-[8px] text-indigo-200">Depts</div>
+              </div>
             </div>
           </div>
         </div>
 
         {message && (
-          <div className="mb-5 rounded-2xl bg-white border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 shadow-sm">
+          <div className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-xs font-bold text-slate-300">
             {message}
           </div>
         )}
 
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl border border-white p-4 sm:p-6">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+        {/* Main Table */}
+        <div className="bg-[#101827] rounded-xl border border-white/10 shadow-lg overflow-hidden">
+          <div className="p-3 border-b border-white/10 flex flex-col md:flex-row justify-between md:items-center gap-2">
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-slate-800">
-                Users List
-              </h2>
-              <p className="text-sm text-slate-500">
-                Loaded from get-all-users-list API.
-              </p>
+              <h2 className="text-sm font-bold text-white">Users List</h2>
+              <p className="text-[9px] text-slate-400">Loaded from get-all-users-list API</p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-              <div className="relative w-full sm:w-80">
-                <span className="absolute left-4 top-2.5 text-slate-400">
-                  🔍
-                </span>
-
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <div className="relative w-full sm:w-56">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
                 <input
                   type="text"
-                  placeholder="Search user or email..."
+                  placeholder="Search user..."
                   value={globalFilter ?? ""}
                   onChange={(e) => setGlobalFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-2xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                  className="w-full pl-7 pr-3 py-1.5 border border-white/10 rounded-lg bg-[#0f172a] text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <button
                 onClick={fetchUsers}
                 disabled={loading}
-                className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 text-white hover:bg-indigo-700 rounded-2xl text-sm font-bold shadow-lg transition disabled:opacity-60"
+                className="px-3 py-1.5 bg-slate-800 text-white hover:bg-slate-700 rounded-lg text-[10px] font-bold transition disabled:opacity-60 whitespace-nowrap"
               >
-                {loading ? "Loading..." : "Refresh"}
+                {loading ? "..." : "⟳"}
               </button>
 
               <button
                 onClick={openCreateModal}
-                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-2xl text-sm font-bold shadow-lg transition"
+                className="px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-[10px] font-bold transition whitespace-nowrap"
               >
-                + Create User
+                + Create
               </button>
             </div>
           </div>
 
-          <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200">
-            <table className="min-w-[850px] w-full">
-              <thead>
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="bg-[#0f172a] border-b border-white/10">
                 {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id} className="bg-slate-50">
+                  <tr key={headerGroup.id}>
                     {headerGroup.headers.map((header) => (
                       <th
                         key={header.id}
-                        className="px-6 py-4 text-left text-xs font-extrabold text-slate-500 uppercase"
+                        className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider"
+                        style={{ width: header.column.columnDef.size }}
                       >
                         {flexRender(
                           header.column.columnDef.header,
@@ -462,11 +474,11 @@ function UsersTable() {
                 ))}
               </thead>
 
-              <tbody className="bg-white divide-y divide-slate-100">
+              <tbody className="divide-y divide-white/5">
                 {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-indigo-50/70">
+                  <tr key={row.id} className="hover:bg-white/5 transition">
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-6 py-5 text-sm">
+                      <td key={cell.id} className="px-3 py-2.5">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -475,7 +487,7 @@ function UsersTable() {
 
                 {table.getRowModel().rows.length === 0 && (
                   <tr>
-                    <td colSpan="5" className="px-6 py-10 text-center text-slate-400">
+                    <td colSpan="5" className="px-3 py-8 text-center text-slate-400 text-sm">
                       No users found
                     </td>
                   </tr>
@@ -484,7 +496,8 @@ function UsersTable() {
             </table>
           </div>
 
-          <div className="md:hidden space-y-4">
+          {/* Mobile Cards */}
+          <div className="md:hidden p-3 space-y-3">
             {table.getRowModel().rows.map((row) => {
               const user = row.original;
               const initials = user.userName?.slice(0, 2).toUpperCase();
@@ -492,29 +505,29 @@ function UsersTable() {
               return (
                 <div
                   key={user.recId}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                  className="rounded-lg border border-white/10 bg-[#0f172a] p-3"
                 >
-                  <div className="flex items-start justify-between gap-3 mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center text-white font-bold">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
                         {initials}
                       </div>
 
                       <div>
-                        <h3 className="font-bold text-slate-800">
+                        <h3 className="text-xs font-bold text-white truncate">
                           {user.userName}
                         </h3>
-                        <p className="text-xs text-slate-400 break-all">
+                        <p className="text-[9px] text-slate-400 truncate">
                           {user.email}
                         </p>
                       </div>
                     </div>
 
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                         user.isActive
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
+                          ? "bg-emerald-500/20 text-emerald-300"
+                          : "bg-red-500/20 text-red-300"
                       }`}
                     >
                       {user.isActive ? "Active" : "Inactive"}
@@ -523,7 +536,7 @@ function UsersTable() {
 
                   <button
                     onClick={() => fetchUserProfile(user.recId)}
-                    className="w-full px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold"
+                    className="w-full px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 transition"
                   >
                     View Profile
                   </button>
@@ -531,67 +544,98 @@ function UsersTable() {
               );
             })}
           </div>
+
+          {/* Pagination */}
+          {table.getPageCount() > 1 && (
+            <div className="p-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <p className="text-[9px] text-slate-400">
+                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+              </p>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 text-white text-[10px] font-bold hover:bg-slate-700 disabled:opacity-40 transition"
+                >
+                  ◀
+                </button>
+                <button
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 text-white text-[10px] font-bold hover:bg-slate-700 disabled:opacity-40 transition"
+                >
+                  ▶
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Create Modal */}
       {createOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center">
-          <div className="w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-purple-950 p-6 text-white flex justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 p-3 backdrop-blur-sm flex items-center justify-center">
+          <div className="w-full max-w-md bg-[#0b1220] rounded-xl border border-white/10 shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-[#101827] to-[#1a1f35] p-4 text-white flex justify-between items-start gap-3 border-b border-white/10">
               <div>
-                <h2 className="text-2xl font-extrabold">Create New User</h2>
-                <p className="text-indigo-100 text-sm">
-                  Register user and assign role.
-                </p>
+                <h2 className="text-base font-bold">Create New User</h2>
+                <p className="text-[10px] text-indigo-200/60">Register user and assign role</p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setCreateOpen(false)}
-                className="h-10 w-10 rounded-xl bg-white/10"
+                className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 transition"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateUser} className="p-5 space-y-4">
-              <InputField
-                label="Username"
-                name="userName"
-                value={createForm.userName}
-                onChange={handleCreateChange}
-                placeholder="Robi"
-              />
-
-              <InputField
-                label="Email"
-                type="email"
-                name="email"
-                value={createForm.email}
-                onChange={handleCreateChange}
-                placeholder="robi@tusuka.com"
-              />
-
-              <InputField
-                label="Password"
-                type="password"
-                name="password"
-                value={createForm.password}
-                onChange={handleCreateChange}
-                placeholder="12345"
-              />
+            <form onSubmit={handleCreateUser} className="p-4 space-y-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-0.5">Username</label>
+                <input
+                  name="userName"
+                  value={createForm.userName}
+                  onChange={handleCreateChange}
+                  placeholder="Robi"
+                  className="w-full border border-white/10 rounded-lg bg-[#0f172a] px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">
-                  Role
-                </label>
+                <label className="block text-[10px] font-bold text-slate-400 mb-0.5">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={createForm.email}
+                  onChange={handleCreateChange}
+                  placeholder="robi@tusuka.com"
+                  className="w-full border border-white/10 rounded-lg bg-[#0f172a] px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-0.5">Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  value={createForm.password}
+                  onChange={handleCreateChange}
+                  placeholder="••••••"
+                  className="w-full border border-white/10 rounded-lg bg-[#0f172a] px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-0.5">Role</label>
                 <select
                   name="roleRecId"
                   value={createForm.roleRecId}
                   onChange={handleCreateChange}
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full border border-white/10 rounded-lg bg-[#0f172a] px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">No Role / Select Role</option>
+                  <option value="">Select Role</option>
                   {roles.map((role) => (
                     <option key={role.roleRecId} value={role.roleRecId}>
                       {role.roleName}
@@ -600,11 +644,11 @@ function UsersTable() {
                 </select>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-3">
+              <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm disabled:opacity-60"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 disabled:opacity-60 transition"
                 >
                   {loading ? "Creating..." : "Create User"}
                 </button>
@@ -612,7 +656,7 @@ function UsersTable() {
                 <button
                   type="button"
                   onClick={() => setCreateOpen(false)}
-                  className="flex-1 px-5 py-3 bg-slate-100 text-slate-700 rounded-2xl font-bold text-sm"
+                  className="flex-1 px-4 py-2 bg-white/5 text-slate-400 rounded-lg text-xs font-bold hover:bg-white/10 transition"
                 >
                   Cancel
                 </button>
@@ -622,74 +666,80 @@ function UsersTable() {
         </div>
       )}
 
+      {/* Profile Modal */}
       {profileOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center">
-          <div className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-purple-950 p-6 text-white flex justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 p-3 backdrop-blur-sm flex items-center justify-center">
+          <div className="w-full max-w-4xl bg-[#0b1220] rounded-xl border border-white/10 shadow-2xl overflow-hidden max-h-[90vh]">
+            <div className="bg-gradient-to-r from-[#101827] to-[#1a1f35] p-4 text-white flex justify-between items-start gap-3 border-b border-white/10">
               <div>
-                <h2 className="text-2xl font-extrabold">
-                  {selectedUser.userName}
-                </h2>
-                <p className="text-indigo-100 text-sm">{selectedUser.email}</p>
-                <p className="text-indigo-200 text-xs mt-1">
-                  User ID: {selectedUser.recId}
-                </p>
+                <h2 className="text-base font-bold">{selectedUser.userName}</h2>
+                <p className="text-[10px] text-indigo-200/60">{selectedUser.email}</p>
+                <p className="text-[9px] text-slate-400 mt-0.5">ID: {selectedUser.recId}</p>
               </div>
 
               <button
                 onClick={() => setProfileOpen(false)}
-                className="h-10 w-10 rounded-xl bg-white/10"
+                className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 transition flex-shrink-0"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-5 max-h-[75vh] overflow-y-auto">
-              <ProfileSection
-                title="Roles"
-                items={selectedUser.roles}
-                empty="No roles assigned"
-                getLabel={(item) => item.roleName}
-                color="purple"
-              />
-
-              <ProfileSection
-                title="Permissions"
-                items={selectedUser.permissions}
-                empty="No permissions assigned"
-                getLabel={(item) => item.permissionName}
-                color="emerald"
-              />
-
-              <ProfileSection
-                title="Current Departments"
-                items={userDepartments}
-                empty="No assigned departments"
-                getLabel={(item) =>
-                  item.departmentName ||
-                  item.departmentCode ||
-                  item.name ||
-                  item.recId ||
-                  item
-                }
-                color="blue"
-              />
-
-              <form
-                onSubmit={handleSetDepartments}
-                className="mt-5 rounded-2xl bg-slate-50 border border-slate-200 p-4"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                  <div>
-                    <h3 className="font-bold text-slate-800">
-                      Set User Departments
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Select departments and save selected department recIds.
-                    </p>
+            <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Roles</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedUser.roles?.length > 0 ? (
+                      selectedUser.roles.map((role, index) => (
+                        <span key={role.recId || index} className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[9px] font-bold border border-purple-500/20">
+                          {role.roleName}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400">No roles assigned</span>
+                    )}
                   </div>
+                </div>
 
-                  <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold">
+                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Permissions</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedUser.permissions?.length > 0 ? (
+                      selectedUser.permissions.map((perm, index) => (
+                        <span key={perm.recId || index} className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-bold border border-emerald-500/20">
+                          {perm.permissionName}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400">No permissions assigned</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3 mb-4">
+                <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Current Departments</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {userDepartments.length > 0 ? (
+                    userDepartments.map((dept, index) => (
+                      <span key={dept.recId || index} className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[9px] font-bold border border-blue-500/20">
+                        {dept.departmentName || dept.name || dept.recId}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-slate-400">No assigned departments</span>
+                  )}
+                </div>
+              </div>
+
+              <form onSubmit={handleSetDepartments} className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <div>
+                    <h3 className="text-xs font-bold text-white">Set User Departments</h3>
+                    <p className="text-[9px] text-slate-400">Select departments to assign</p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[9px] font-bold border border-indigo-500/20">
                     Selected: {selectedDepartmentIds.length}
                   </span>
                 </div>
@@ -698,37 +748,37 @@ function UsersTable() {
                   value={departmentSearch}
                   onChange={(e) => setDepartmentSearch(e.target.value)}
                   placeholder="Search department, buyer, code..."
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+                  className="w-full border border-white/10 rounded-lg bg-[#0a0c12] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
                 />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto">
                   {filteredDepartments.map((dept) => {
                     const checked = selectedDepartmentIds.includes(dept.recId);
 
                     return (
                       <label
                         key={dept.recId}
-                        className={`flex items-start gap-3 rounded-2xl border p-3 cursor-pointer transition ${
+                        className={`flex items-start gap-2 rounded-lg border p-2.5 cursor-pointer transition ${
                           checked
-                            ? "bg-indigo-50 border-indigo-200"
-                            : "bg-white border-slate-200 hover:bg-slate-50"
+                            ? "bg-indigo-500/10 border-indigo-500/30"
+                            : "bg-[#0a0c12] border-white/10 hover:bg-white/5"
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleDepartment(dept.recId)}
-                          className="mt-1 h-4 w-4 accent-indigo-600"
+                          className="mt-0.5 h-3.5 w-3.5 accent-indigo-600"
                         />
 
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-800 truncate">
+                          <p className="text-xs font-bold text-white truncate">
                             {dept.departmentName}
                           </p>
-                          <p className="text-xs text-slate-500">
-                            ID: {dept.recId} • Code: {dept.departmentCode}
+                          <p className="text-[9px] text-slate-400">
+                            Code: {dept.departmentCode || "-"}
                           </p>
-                          <p className="text-xs text-indigo-600 truncate">
+                          <p className="text-[9px] text-indigo-400 truncate">
                             Buyer: {dept.buyerName || "-"}
                           </p>
                         </div>
@@ -737,11 +787,11 @@ function UsersTable() {
                   })}
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                <div className="flex flex-col sm:flex-row gap-2 mt-3">
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-5 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm disabled:opacity-60"
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 disabled:opacity-60 transition"
                   >
                     {loading ? "Saving..." : "Save Departments"}
                   </button>
@@ -749,7 +799,7 @@ function UsersTable() {
                   <button
                     type="button"
                     onClick={() => setSelectedDepartmentIds([])}
-                    className="px-5 py-3 bg-slate-200 text-slate-700 rounded-2xl font-bold text-sm"
+                    className="px-4 py-2 bg-white/5 text-slate-400 rounded-lg text-xs font-bold hover:bg-white/10 transition"
                   >
                     Clear Selected
                   </button>
@@ -762,54 +812,5 @@ function UsersTable() {
     </div>
   );
 }
-
-const InfoBox = ({ value, label }) => (
-  <div className="bg-white/10 backdrop-blur rounded-2xl px-3 sm:px-5 py-3 sm:py-4 border border-white/10 text-center">
-    <div className="text-xl sm:text-2xl font-bold text-white">{value}</div>
-    <div className="text-[10px] sm:text-xs text-indigo-100">{label}</div>
-  </div>
-);
-
-const InputField = ({ label, ...props }) => (
-  <div>
-    <label className="block text-sm font-bold text-slate-700 mb-1">
-      {label}
-    </label>
-    <input
-      {...props}
-      className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-    />
-  </div>
-);
-
-const ProfileSection = ({ title, items, empty, getLabel, color }) => {
-  const colors = {
-    purple: "bg-purple-50 text-purple-700 border-purple-100",
-    emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    blue: "bg-blue-50 text-blue-700 border-blue-100",
-    orange: "bg-orange-50 text-orange-700 border-orange-100",
-  };
-
-  return (
-    <div className="mb-5">
-      <h3 className="font-bold text-slate-800 mb-2">{title}</h3>
-
-      <div className="flex flex-wrap gap-2">
-        {items && items.length > 0 ? (
-          items.map((item, index) => (
-            <span
-              key={item.recId || item.id || index}
-              className={`px-3 py-1 rounded-full text-xs font-bold border ${colors[color]}`}
-            >
-              {getLabel(item)}
-            </span>
-          ))
-        ) : (
-          <span className="text-sm text-slate-400 italic">{empty}</span>
-        )}
-      </div>
-    </div>
-  );
-};
 
 export default UsersTable;

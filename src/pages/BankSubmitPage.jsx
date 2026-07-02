@@ -901,16 +901,15 @@ function BankSubmitPage() {
   const hasActiveFilters = fromDate !== "" || toDate !== "";
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0c12] text-slate-100 px-3 py-4 sm:p-5 lg:p-6">
-      <div className="w-full my-12 space-y-5">
-        <div className="rounded-3xl bg-[#101827] border border-white/10 p-4 sm:p-5 shadow-2xl">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+    <div className="min-h-screen w-full bg-[#0a0c12] text-slate-100 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4">
+        {/* Header */}
+        <div className="rounded-2xl bg-[#101827] border border-white/10 p-4 shadow-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white">
-                Bank Submit
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                Converted from React Native BankSubmit screen using same APIs.
+              <h1 className="text-2xl font-black text-white">🏦 Bank Submit</h1>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Converted from React Native BankSubmit screen using same APIs
               </p>
             </div>
 
@@ -918,171 +917,150 @@ function BankSubmitPage() {
               type="button"
               onClick={onRefresh}
               disabled={refreshing || bankLoading}
-              className="rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60 transition whitespace-nowrap"
             >
-              {refreshing ? "Refreshing..." : "Refresh"}
+              {refreshing ? "Refreshing..." : "🔄 Refresh"}
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <DateInput
-              label="From Date"
-              value={formatDateForInput(fromDate)}
-              onChange={(value) => setFromDate(formatInputDateToDisplay(value))}
-            />
-
-            <DateInput
-              label="To Date"
-              value={formatDateForInput(toDate)}
-              onChange={(value) => setToDate(formatInputDateToDisplay(value))}
-            />
-          </div>
-
-          {hasActiveFilters && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-slate-400">Active Filters:</span>
-
-              {fromDate && (
-                <FilterBadge
-                  label={`From: ${fromDate}`}
-                  onClear={() => setFromDate("")}
-                />
-              )}
-
-              {toDate && (
-                <FilterBadge
-                  label={`To: ${toDate}`}
-                  onClear={() => setToDate("")}
-                />
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setFromDate("");
-                  setToDate("");
-                  setTimeout(() => {
-                    onRefresh();
-                  }, 100);
-                }}
-                className="rounded-full bg-red-500/10 border border-red-500/30 px-3 py-1 text-xs font-bold text-red-300 hover:bg-red-500/20"
-              >
-                Reset All
-              </button>
+          {/* Date Filters - Compact */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                From Date
+              </label>
+              <input
+                type="date"
+                value={formatDateForInput(fromDate)}
+                onChange={(e) => setFromDate(formatInputDateToDisplay(e.target.value))}
+                className="w-full rounded-xl bg-[#0b1220] border border-slate-700/60 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
-          )}
+
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                To Date
+              </label>
+              <input
+                type="date"
+                value={formatDateForInput(toDate)}
+                onChange={(e) => setToDate(formatInputDateToDisplay(e.target.value))}
+                className="w-full rounded-xl bg-[#0b1220] border border-slate-700/60 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex items-end gap-2">
+              {hasActiveFilters && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFromDate("");
+                      setToDate("");
+                      setTimeout(() => {
+                        onRefresh();
+                      }, 100);
+                    }}
+                    className="rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20 transition"
+                  >
+                    ✕ Reset
+                  </button>
+                  
+                  <div className="flex flex-wrap gap-1">
+                    {fromDate && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 px-2 py-1 text-[10px] font-bold text-blue-300 border border-blue-500/20">
+                        From: {fromDate}
+                        <button onClick={() => setFromDate("")} className="hover:text-white">✕</button>
+                      </span>
+                    )}
+                    {toDate && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 px-2 py-1 text-[10px] font-bold text-blue-300 border border-blue-500/20">
+                        To: {toDate}
+                        <button onClick={() => setToDate("")} className="hover:text-white">✕</button>
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {error && (
-          <div className="rounded-2xl bg-pink-500/10 border border-pink-500/30 px-4 py-3 text-sm text-pink-300">
-            {error}
+          <div className="rounded-xl bg-pink-500/10 border border-pink-500/30 px-4 py-2 text-sm text-pink-300">
+            ⚠️ {error}
           </div>
         )}
 
-        <section className="rounded-3xl bg-[#0f111a] border border-white/10 shadow-2xl overflow-hidden">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-5">
-            <div>
-              <h2 className="text-xl font-black text-white">
-                🏦 Bank Submission Summary
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Overview by active department
-              </p>
+        {/* Main Section */}
+        <section className="rounded-2xl bg-[#0f111a] border border-white/10 shadow-2xl overflow-hidden">
+          {/* Stats Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-black text-white">📊 Bank Submission Summary</h2>
+              <span className="text-xs text-slate-400">Overview by active department</span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <SummaryPill label="Departments" value={totalDepartmentCount} />
-              <SummaryPill label="Pending" value={totalPendingBank} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 px-4 sm:px-5 pb-4">
-            <DashboardCard
-              icon="💰"
-              tag="Value"
-              value={`$${formatNumber(displayTotalValue)}`}
-              label="Total Pending Value"
-              variant="purple"
-            />
-
-            <DashboardCard
-              icon="✅"
-              tag="Done"
-              value={formatNumber(displaySubmittedCount)}
-              label="Completed Submissions"
-              variant="green"
-            />
-
-            <DashboardCard
-              icon="⏳"
-              tag="Pending"
-              value={formatNumber(displayPendingCount)}
-              label="Pending Bank Submission"
-              variant="orange"
-            />
-
-            <DashboardCard
-              icon="📊"
-              tag="Total"
-              value={formatNumber(displayTotalFiles)}
-              label="Total Export Documents"
-              variant="blue"
-            />
-          </div>
-
-          {!bankLoading && filteredBankData.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mx-4 sm:mx-5 mb-5 rounded-3xl bg-[#101a3f] border border-white/10 p-3">
-              <InsightCard
-                title="Highest Pending"
-                item={highestPendingItem}
-                count={highestPendingItem?.pendingBank || 0}
-                countClass="bg-red-500"
-                onClick={() => highestPendingItem && handleCardClick(highestPendingItem)}
-              />
-
-              <InsightCard
-                title="Lowest Pending"
-                item={lowestPendingItem}
-                count={lowestPendingItem?.pendingBank || 0}
-                countClass="bg-emerald-500"
-                onClick={() => lowestPendingItem && handleCardClick(lowestPendingItem)}
-              />
-            </div>
-          )}
-
-          <div className="px-4 sm:px-5 pb-4">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-lg font-black text-white">
-                  Pending Bank Submission
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Click any card for bank submission details
-                </p>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-blue-500/10 rounded-full px-3 py-1 border border-blue-500/20">
+                <span className="text-xs font-bold text-blue-300">Departments</span>
+                <span className="text-sm font-black text-white">{totalDepartmentCount}</span>
               </div>
+              <div className="flex items-center gap-2 bg-emerald-500/10 rounded-full px-3 py-1 border border-emerald-500/20">
+                <span className="text-xs font-bold text-emerald-300">Pending</span>
+                <span className="text-sm font-black text-white">{totalPendingBank}</span>
+              </div>
+            </div>
+          </div>
 
-              <SearchBox
-                value={searchText}
-                setValue={(value) => {
-                  setSearchText(value);
-                  setBankCurrentPage(1);
-                }}
-                placeholder="Search department..."
-              />
+          {/* Dashboard Cards - Compact */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4">
+            <div className="rounded-xl bg-[#1c1733] border border-violet-500/25 px-3 py-2">
+              <div className="text-lg font-black text-violet-200">${formatNumber(displayTotalValue)}</div>
+              <div className="text-[10px] font-bold text-violet-300/60">Total Value</div>
+            </div>
+            <div className="rounded-xl bg-[#102a24] border border-emerald-500/25 px-3 py-2">
+              <div className="text-lg font-black text-emerald-200">{formatNumber(displaySubmittedCount)}</div>
+              <div className="text-[10px] font-bold text-emerald-300/60">Completed</div>
+            </div>
+            <div className="rounded-xl bg-[#2b2112] border border-amber-500/25 px-3 py-2">
+              <div className="text-lg font-black text-amber-200">{formatNumber(displayPendingCount)}</div>
+              <div className="text-[10px] font-bold text-amber-300/60">Pending</div>
+            </div>
+            <div className="rounded-xl bg-[#132238] border border-blue-500/25 px-3 py-2">
+              <div className="text-lg font-black text-blue-200">{formatNumber(displayTotalFiles)}</div>
+              <div className="text-[10px] font-bold text-blue-300/60">Total Files</div>
+            </div>
+          </div>
+
+          {/* Search & Cards */}
+          <div className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <h3 className="text-sm font-black text-white">Pending Bank Submission</h3>
+
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+                <input
+                  value={searchText}
+                  onChange={(e) => {
+                    setSearchText(e.target.value);
+                    setBankCurrentPage(1);
+                  }}
+                  placeholder="Search department..."
+                  className="w-full sm:w-56 rounded-xl bg-[#1e293b] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
 
             {bankLoading ? (
-              <div className="py-16 text-center text-slate-400">
-                Loading pending bank submissions...
-              </div>
+              <div className="py-8 text-center text-slate-400 text-sm">Loading pending bank submissions...</div>
             ) : bankCurrentPageData.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {bankCurrentPageData.map((item, index) => {
                     const pending = item?.pendingBank || 0;
                     const accentColor = cardAccentColors[index % cardAccentColors.length];
                     const icon = cardIcons[index % cardIcons.length];
-                    const percentage = getPendingPercentage(pending);
                     const statusMeta = getStatusMeta(pending);
 
                     return (
@@ -1090,66 +1068,60 @@ function BankSubmitPage() {
                         key={`${item?.departmentCode || item?.customerName || index}-${index}`}
                         type="button"
                         onClick={() => handleCardClick(item)}
-                        className="relative overflow-hidden rounded-2xl bg-[#161b26] border border-[#293244] p-4 text-left shadow-lg hover:border-blue-500/50 hover:bg-[#1a2232] transition"
-                        style={{ borderLeftWidth: 4, borderLeftColor: accentColor }}
+                        className="relative overflow-hidden rounded-xl bg-[#161b26] border border-[#293244] p-3 text-left shadow-lg hover:border-blue-500/50 hover:bg-[#1a2232] transition-all group"
+                        style={{ borderLeftWidth: 3, borderLeftColor: accentColor }}
                       >
                         <div
-                          className="absolute -top-8 -right-8 h-20 w-20 rounded-full opacity-20"
+                          className="absolute -top-6 -right-6 h-16 w-16 rounded-full opacity-20"
                           style={{ backgroundColor: accentColor }}
                         />
 
-                        <div className="relative flex items-start gap-3 mb-4">
+                        <div className="relative flex items-start gap-2 mb-2">
                           <div
-                            className="h-10 w-10 rounded-xl flex items-center justify-center text-lg"
+                            className="h-8 w-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
                             style={{ backgroundColor: `${accentColor}2b` }}
                           >
                             {icon}
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <h4 className="text-sm font-black text-white line-clamp-2">
+                            <h4 className="text-sm font-bold text-white truncate">
                               {getDisplayName(item)}
                             </h4>
-                            <p className="text-xs text-slate-400 truncate mt-1">
+                            <p className="text-[10px] text-slate-400 truncate">
                               {getDepartmentSubText(item)}
                             </p>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 mb-4">
-                          <div className="flex-1 h-1.5 rounded-full bg-[#243041] overflow-hidden">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex-1 h-1 rounded-full bg-[#243041] overflow-hidden">
                             <div
-                              className="h-full rounded-full"
+                              className="h-full rounded-full transition-all"
                               style={{
                                 width: getProgressWidth(pending),
                                 backgroundColor: accentColor,
                               }}
                             />
                           </div>
-                          <span className="text-[11px] font-black text-slate-200">
-                            {percentage}%
+                          <span className="text-[10px] font-bold text-slate-300">
+                            {getPendingPercentage(pending)}%
                           </span>
                         </div>
 
-                        <div className="relative flex items-center justify-between gap-3">
+                        <div className="flex items-center justify-between gap-2">
                           <span
-                            className="rounded-full px-3 py-1 text-xs font-black text-white"
+                            className="rounded-lg px-2 py-0.5 text-[10px] font-bold text-white"
                             style={{ backgroundColor: accentColor }}
                           >
-                            Pending: {pending}
+                            {pending} pending
                           </span>
 
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`rounded-full border px-2 py-1 text-[10px] font-black ${statusMeta.bgColor} ${statusMeta.borderColor} ${statusMeta.textColor}`}
-                            >
-                              {statusMeta.label}
-                            </span>
-
-                            <span className="text-xs font-black text-blue-400">
-                              View →
-                            </span>
-                          </div>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[8px] font-bold uppercase ${statusMeta.bgColor} ${statusMeta.borderColor} ${statusMeta.textColor}`}
+                          >
+                            {statusMeta.label}
+                          </span>
                         </div>
                       </button>
                     );
@@ -1166,14 +1138,10 @@ function BankSubmitPage() {
                 />
               </>
             ) : (
-              <div className="py-16 text-center">
-                <div className="text-4xl mb-2">✅</div>
-                <h3 className="text-sm font-bold text-slate-200">
-                  No pending bank submission found
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  All departments are up to date
-                </p>
+              <div className="py-12 text-center">
+                <div className="text-3xl mb-2">✅</div>
+                <h3 className="text-sm font-bold text-slate-200">No pending bank submission found</h3>
+                <p className="text-xs text-slate-500 mt-1">All departments are up to date</p>
               </div>
             )}
           </div>
@@ -1209,146 +1177,6 @@ function BankSubmitPage() {
   );
 }
 
-function DateInput({ label, value, onChange }) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-[11px] font-bold uppercase text-slate-400">
-        {label}
-      </label>
-      <div className="relative">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-          📅
-        </span>
-        <input
-          type="date"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full min-h-[52px] rounded-2xl bg-[#0b1220] border border-slate-700/60 pl-11 pr-4 py-3 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-    </div>
-  );
-}
-
-function FilterBadge({ label, onClear }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-3 py-1 text-xs font-bold text-white">
-      {label}
-      <button type="button" onClick={onClear} className="font-black">
-        ✕
-      </button>
-    </span>
-  );
-}
-
-function SummaryPill({ label, value }) {
-  return (
-    <div className="rounded-full bg-blue-500/10 border border-blue-500/30 px-4 py-2 text-center">
-      <div className="text-sm font-black text-blue-200">{value}</div>
-      <div className="text-[10px] font-bold text-blue-300">{label}</div>
-    </div>
-  );
-}
-
-function DashboardCard({ icon, tag, value, label, variant }) {
-  const variants = {
-    purple: "bg-[#1c1733] border-violet-500/25 text-violet-200",
-    green: "bg-[#102a24] border-emerald-500/25 text-emerald-200",
-    orange: "bg-[#2b2112] border-amber-500/25 text-amber-200",
-    blue: "bg-[#132238] border-blue-500/25 text-blue-200",
-  };
-
-  const glow = {
-    purple: "bg-violet-500/10",
-    green: "bg-emerald-500/10",
-    orange: "bg-amber-500/10",
-    blue: "bg-blue-500/10",
-  };
-
-  return (
-    <div
-      className={`relative min-h-[140px] overflow-hidden rounded-3xl border p-5 shadow-xl ${
-        variants[variant] || variants.blue
-      }`}
-    >
-      <div
-        className={`absolute -top-8 -right-8 h-28 w-28 rounded-full ${
-          glow[variant] || glow.blue
-        }`}
-      />
-
-      <div className="relative flex items-center justify-between mb-5">
-        <div className="h-11 w-11 rounded-2xl bg-white/10 flex items-center justify-center text-2xl">
-          {icon}
-        </div>
-        <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase">
-          {tag}
-        </span>
-      </div>
-
-      <h3 className="relative text-2xl font-black text-white break-all">
-        {value}
-      </h3>
-      <p className="relative mt-2 text-xs font-bold text-slate-400">{label}</p>
-    </div>
-  );
-}
-
-function InsightCard({ title, item, count, countClass, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center justify-between gap-4 rounded-2xl bg-white/5 p-4 text-left hover:bg-white/10 transition"
-    >
-      <div className="min-w-0">
-        <p className="text-xs font-bold text-slate-400">{title}</p>
-        <h4 className="mt-1 truncate text-sm font-black text-white">
-          {item?.customerName || "Unknown"}
-        </h4>
-        <p className="mt-1 truncate text-xs font-bold text-slate-400">
-          {item?.departmentName || item?.departmentCode || "-"}
-        </p>
-      </div>
-
-      <span
-        className={`min-w-12 rounded-2xl px-3 py-2 text-center text-sm font-black text-white ${countClass}`}
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
-function SearchBox({ value, setValue, placeholder }) {
-  return (
-    <div className="flex flex-col sm:flex-row gap-2">
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-          🔍
-        </span>
-
-        <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={placeholder}
-          className="w-full sm:w-72 rounded-2xl bg-[#1e293b] border border-white/10 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {value && (
-        <button
-          type="button"
-          onClick={() => setValue("")}
-          className="rounded-2xl bg-pink-500/10 border border-pink-500/30 px-4 py-2.5 text-sm font-bold text-pink-300"
-        >
-          Clear
-        </button>
-      )}
-    </div>
-  );
-}
-
 function Pagination({
   currentPage,
   totalPages,
@@ -1377,19 +1205,19 @@ function Pagination({
   }
 
   return (
-    <div className="mt-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-t border-white/10 pt-4">
-      <p className="text-xs text-slate-400">
+    <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-white/10 pt-3">
+      <p className="text-[10px] text-slate-400">
         {startItem}-{endItem} of {totalItems}
       </p>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1">
         <button
           type="button"
           disabled={currentPage === 1}
           onClick={() => onPageChange(currentPage - 1)}
-          className="rounded-xl bg-slate-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
+          className="rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40 hover:bg-slate-700 transition"
         >
-          Previous
+          ◀
         </button>
 
         {pageNumbers.map((page) => (
@@ -1397,10 +1225,10 @@ function Pagination({
             type="button"
             key={page}
             onClick={() => onPageChange(page)}
-            className={`rounded-xl px-3 py-2 text-xs font-bold ${
+            className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
               currentPage === page
                 ? "bg-blue-600 text-white"
-                : "bg-slate-800 text-slate-200"
+                : "bg-slate-800 text-slate-200 hover:bg-slate-700"
             }`}
           >
             {page}
@@ -1411,24 +1239,24 @@ function Pagination({
           type="button"
           disabled={currentPage === safeTotalPages}
           onClick={() => onPageChange(currentPage + 1)}
-          className="rounded-xl bg-slate-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
+          className="rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-bold text-white disabled:opacity-40 hover:bg-slate-700 transition"
         >
-          Next
+          ▶
         </button>
-      </div>
 
-      <select
-        value={itemsPerPage}
-        onChange={(e) => {
-          setItemsPerPage(Number(e.target.value));
-          onPageChange(1);
-        }}
-        className="rounded-xl bg-slate-800 border border-white/10 px-3 py-2 text-xs font-bold text-white"
-      >
-        <option value={20}>20 rows</option>
-        <option value={50}>50 rows</option>
-        <option value={100}>100 rows</option>
-      </select>
+        <select
+          value={itemsPerPage}
+          onChange={(e) => {
+            setItemsPerPage(Number(e.target.value));
+            onPageChange(1);
+          }}
+          className="rounded-lg bg-slate-800 border border-white/10 px-2 py-1 text-xs font-bold text-white"
+        >
+          <option value={20}>20</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+        </select>
+      </div>
     </div>
   );
 }
@@ -1453,20 +1281,17 @@ function DetailsModal({
   getBankStatusClass,
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-3">
-      <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0b1220] shadow-2xl">
-        <div className="flex items-center justify-between gap-4 border-b border-white/10 bg-[#111c35] px-5 py-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/20 text-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm">
+      <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20 text-base flex-shrink-0">
               🏦
             </div>
-
             <div className="min-w-0">
-              <h3 className="truncate text-lg font-black text-white">{title}</h3>
-              <p className="truncate text-xs text-slate-400">
-                {fromDate || toDate
-                  ? `${fromDate || "Start"} → ${toDate || "Today"}`
-                  : "All pending bank submission records"}
+              <h3 className="truncate text-sm font-bold text-white">{title}</h3>
+              <p className="truncate text-[10px] text-slate-400">
+                {fromDate || toDate ? `${fromDate || "Start"} → ${toDate || "Today"}` : "All pending bank submission records"}
               </p>
             </div>
           </div>
@@ -1474,70 +1299,58 @@ function DetailsModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 text-red-300 hover:bg-red-500/20"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-300 hover:bg-red-500/20 transition flex-shrink-0"
           >
             ✕
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[120px_1fr] gap-3 px-5 pt-4">
-          <div className="rounded-2xl bg-[#132238] border border-blue-500/20 px-4 py-3">
-            <div className="text-xl font-black text-white">{totalRecords}</div>
-            <div className="text-xs font-bold text-blue-300">Records</div>
+        <div className="grid grid-cols-2 gap-2 px-4 pt-3">
+          <div className="rounded-xl bg-[#132238] border border-blue-500/20 px-3 py-2">
+            <div className="text-lg font-black text-white">{totalRecords}</div>
+            <div className="text-[10px] font-bold text-blue-300">Records</div>
           </div>
-
-          <div className="rounded-2xl bg-[#102a24] border border-emerald-500/20 px-4 py-4">
-            <div className="truncate text-xs font-black text-emerald-200">
-              {fromDate || toDate
-                ? `${fromDate || "Start"} - ${toDate || "Today"}`
-                : "No date filter"}
+          <div className="rounded-xl bg-[#102a24] border border-emerald-500/20 px-3 py-2">
+            <div className="text-xs font-bold text-emerald-200 truncate">
+              {fromDate || toDate ? `${fromDate || "Start"} - ${toDate || "Today"}` : "All dates"}
             </div>
+            <div className="text-[10px] font-bold text-emerald-300/60">Date range</div>
           </div>
         </div>
 
         {totalRecords > 0 && (
-          <div className="flex flex-col sm:flex-row gap-3 px-5 py-4">
+          <div className="flex flex-col sm:flex-row gap-2 px-4 py-3">
             <div className="relative flex-1">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
-                🔍
-              </span>
-
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
               <input
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 placeholder="Search packing, export no, department..."
-                className="w-full rounded-2xl bg-[#111827] border border-white/10 pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-xl bg-[#111827] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-
             {searchText && (
               <button
                 type="button"
                 onClick={onClearSearch}
-                className="rounded-2xl bg-pink-500/10 border border-pink-500/30 px-4 py-3 text-sm font-black text-pink-300"
+                className="rounded-xl bg-pink-500/10 border border-pink-500/30 px-3 py-1.5 text-xs font-bold text-pink-300 hover:bg-pink-500/20 transition whitespace-nowrap"
               >
-                Clear
+                ✕ Clear
               </button>
             )}
           </div>
         )}
 
         {loading ? (
-          <div className="m-5 flex flex-1 items-center justify-center rounded-3xl bg-[#111827] text-slate-400">
+          <div className="mx-4 flex flex-1 items-center justify-center rounded-xl bg-[#111827] text-slate-400 text-sm">
             Loading bank records...
           </div>
         ) : data.length > 0 ? (
-          <div className="mx-5 mb-5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0f172a]">
-            <div className="grid grid-cols-[1.55fr_0.9fr_1.05fr] bg-[#16213d] border-b border-white/10">
-              <div className="px-4 py-3 text-xs font-black uppercase text-slate-300">
-                Document
-              </div>
-              <div className="px-4 py-3 text-xs font-black uppercase text-slate-300">
-                Qty / Value
-              </div>
-              <div className="px-4 py-3 text-xs font-black uppercase text-slate-300">
-                Dates / Status
-              </div>
+          <div className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0f172a]">
+            <div className="grid grid-cols-[1.55fr_0.9fr_1.05fr] bg-[#16213d] border-b border-white/10 text-[10px] font-bold uppercase text-slate-300">
+              <div className="px-3 py-2">Document</div>
+              <div className="px-3 py-2">Qty / Value</div>
+              <div className="px-3 py-2">Dates / Status</div>
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -1552,51 +1365,44 @@ function DetailsModal({
                       index % 2 === 0 ? "bg-[#0f172a]" : "bg-[#111c31]"
                     }`}
                   >
-                    <div className="px-4 py-3 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="rounded-full bg-blue-500/20 px-2 py-1 text-[10px] font-black text-blue-300">
+                    <div className="px-3 py-2 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[8px] font-bold text-blue-300 flex-shrink-0">
                           {(currentPage - 1) * itemsPerPage + index + 1}
                         </span>
-
-                        <span className="truncate text-xs font-black text-white">
+                        <span className="truncate text-xs font-bold text-white">
                           {item?.packagingListNo || "-"}
                         </span>
                       </div>
-
-                      <p className="truncate text-xs font-bold text-violet-300">
+                      <p className="truncate text-[10px] font-bold text-violet-300 mt-0.5">
                         {item?.expDocumentNo || "-"}
                       </p>
-
-                      <p className="truncate text-xs font-bold text-blue-300">
+                      <p className="truncate text-[10px] font-bold text-blue-300 mt-0.5">
                         {item?.customerName || "-"}
                       </p>
-
-                      <p className="truncate text-[11px] font-bold text-slate-400">
+                      <p className="truncate text-[9px] font-bold text-slate-400">
                         {item?.departmentName || "-"}
                       </p>
                     </div>
 
-                    <div className="px-4 py-3">
-                      <p className="text-xs font-black text-white">
+                    <div className="px-3 py-2">
+                      <p className="text-xs font-bold text-white">
                         {item?.noOfCarton ? Number(item.noOfCarton).toLocaleString() : "0"} ctn
                       </p>
-
-                      <p className="mt-1 text-[11px] font-bold text-slate-300">
+                      <p className="text-[10px] font-bold text-slate-300">
                         {item?.noOfPcs ? Number(item.noOfPcs).toLocaleString() : "0"} pcs
                       </p>
-
-                      <p className="mt-1 text-xs font-black text-emerald-300">
+                      <p className="text-[10px] font-bold text-emerald-300 mt-0.5">
                         {item?.totalValue ? Number(item.totalValue).toLocaleString() : "0"}
                       </p>
                     </div>
 
-                    <div className="px-4 py-3">
+                    <div className="px-3 py-2">
                       <DateLine label="B/L" value={item?.blDate} />
                       <DateLine label="Ship" value={item?.shippingDate} />
                       <DateLine label="Bank" value={item?.bankSubmissionDate} />
-
                       <span
-                        className={`inline-flex mt-1 rounded-full border px-2 py-1 text-[10px] font-black ${statusClass}`}
+                        className={`inline-flex mt-1 rounded-full border px-1.5 py-0.5 text-[8px] font-bold ${statusClass}`}
                       >
                         {status}
                       </span>
@@ -1606,7 +1412,7 @@ function DetailsModal({
               })}
             </div>
 
-            <div className="px-4 pb-4">
+            <div className="px-3 py-2 border-t border-white/10">
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -1618,14 +1424,10 @@ function DetailsModal({
             </div>
           </div>
         ) : (
-          <div className="m-5 flex flex-1 flex-col items-center justify-center rounded-3xl bg-[#111827] text-center">
-            <div className="text-4xl mb-3">🏦</div>
-            <h3 className="text-base font-black text-white">
-              No bank records found
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Try changing the selected date range.
-            </p>
+          <div className="mx-4 mb-4 flex flex-1 flex-col items-center justify-center rounded-xl bg-[#111827] text-center">
+            <div className="text-3xl mb-2">🏦</div>
+            <h3 className="text-sm font-bold text-white">No bank records found</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Try changing the selected date range.</p>
           </div>
         )}
       </div>
@@ -1635,9 +1437,9 @@ function DetailsModal({
 
 function DateLine({ label, value }) {
   return (
-    <div className="mb-1">
-      <p className="text-[8px] font-black uppercase text-slate-500">{label}</p>
-      <p className="text-[10px] font-bold text-emerald-200">
+    <div className="mb-0.5">
+      <p className="text-[7px] font-black uppercase text-slate-500">{label}</p>
+      <p className="text-[9px] font-bold text-emerald-200">
         {value ? value.split("T")[0] : "-"}
       </p>
     </div>

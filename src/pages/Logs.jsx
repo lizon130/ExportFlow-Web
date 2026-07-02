@@ -282,68 +282,79 @@ function LoggerPage() {
     if (item.updatedDate) {
       return {
         label: "Updated",
-        className: "bg-blue-100 text-blue-700 border-blue-200",
+        className: "bg-blue-500/10 text-blue-300 border-blue-500/20",
       };
     }
 
     return {
       label: "New",
-      className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+      className: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
     };
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-100 px-3 py-4 sm:p-5 lg:p-6">
-      <div className="w-full my-12">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-gray-900 to-indigo-950 p-5 sm:p-8 mb-6 shadow-2xl">
-          <div className="absolute -top-24 -right-20 h-64 w-64 rounded-full bg-indigo-500/30 blur-3xl" />
-          <div className="absolute -bottom-24 -left-20 h-64 w-64 rounded-full bg-cyan-500/20 blur-3xl" />
+    <div className="min-h-screen w-full bg-[#0a0c12] p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4">
+        {/* Header */}
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#101827] via-[#1a1f35] to-[#101827] p-4 shadow-lg border border-white/10">
+          <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-indigo-500/20 blur-2xl" />
+          <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-cyan-500/10 blur-2xl" />
 
-          <div className="relative flex flex-col lg:flex-row justify-between lg:items-center gap-6">
+          <div className="relative flex flex-col lg:flex-row justify-between lg:items-center gap-3">
             <div>
-              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/10 rounded-full px-4 py-1 text-xs text-indigo-100 mb-4">
+              <div className="inline-flex items-center gap-1.5 bg-white/10 border border-white/10 rounded-full px-2.5 py-0.5 text-[9px] text-indigo-200 font-bold mb-1.5">
                 🧾 System Monitor
               </div>
 
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white">
+              <h1 className="text-xl font-black text-white">
                 Logs & Feedback
               </h1>
 
-              <p className="text-indigo-100 mt-2 text-sm sm:text-base">
-                View application logs and export document feedback from users.
+              <p className="text-[10px] text-indigo-200/60 mt-0.5">
+                View application logs and export document feedback from users
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              <InfoBox value={counts.ALL} label="Logs" />
-              <InfoBox value={feedbackCounts.total} label="Feedback" />
-              <InfoBox value={counts.FTL + counts.ERR} label="Critical" />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-white/10 backdrop-blur rounded-lg px-3 py-1.5 border border-white/10 text-center">
+                <div className="text-sm font-bold text-white">{counts.ALL}</div>
+                <div className="text-[8px] text-indigo-200">Logs</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-lg px-3 py-1.5 border border-white/10 text-center">
+                <div className="text-sm font-bold text-white">{feedbackCounts.total}</div>
+                <div className="text-[8px] text-indigo-200">Feedback</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-lg px-3 py-1.5 border border-white/10 text-center">
+                <div className="text-sm font-bold text-red-300">{counts.FTL + counts.ERR}</div>
+                <div className="text-[8px] text-indigo-200">Critical</div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-2 mb-6">
-          <div className="grid grid-cols-2 gap-2">
+        {/* Tabs */}
+        <div className="bg-[#101827] rounded-xl border border-white/10 p-1">
+          <div className="grid grid-cols-2 gap-1">
             <button
               onClick={() => setActiveTab("logs")}
-              className={`rounded-2xl px-5 py-3 text-sm font-extrabold transition ${
+              className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
                 activeTab === "logs"
-                  ? "bg-slate-900 text-white shadow-lg"
-                  : "text-slate-600 hover:bg-slate-100"
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              🧾 Application Logs
+              🧾 Logs
             </button>
 
             <button
               onClick={() => setActiveTab("feedback")}
-              className={`rounded-2xl px-5 py-3 text-sm font-extrabold transition ${
+              className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
                 activeTab === "feedback"
                   ? "bg-indigo-600 text-white shadow-lg"
-                  : "text-slate-600 hover:bg-slate-100"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              💬 Export Feedback
+              💬 Feedback
             </button>
           </div>
         </div>
@@ -351,100 +362,96 @@ function LoggerPage() {
         {activeTab === "logs" ? (
           <>
             {message && (
-              <div className="mb-5 rounded-2xl bg-white border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 shadow-sm">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-xs font-bold text-slate-300">
                 {message}
               </div>
             )}
 
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-4 sm:p-6 mb-6">
-              <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
+            {/* Controls */}
+            <div className="bg-[#101827] rounded-xl border border-white/10 p-3 shadow-lg">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-800">
+                  <h2 className="text-sm font-bold text-white">
                     Log Controls
                   </h2>
-                  <p className="text-sm text-slate-500">
-                    Current mode:{" "}
-                    <span className="font-bold text-indigo-700 uppercase">
-                      {mode}
-                    </span>
+                  <p className="text-[9px] text-slate-400">
+                    Mode: <span className="font-bold text-indigo-300 uppercase">{mode}</span>
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 w-full xl:w-auto">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={fetchTodayLogs}
                     disabled={loading}
-                    className="px-5 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-60"
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold hover:bg-indigo-700 disabled:opacity-60 transition"
                   >
-                    Today Logs
+                    Today
                   </button>
 
-                  <div className="flex gap-2">
-                    <select
-                      value={lines}
-                      onChange={(e) => setLines(Number(e.target.value))}
-                      className="w-full border border-slate-200 rounded-2xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value={50}>50 lines</option>
-                      <option value={100}>100 lines</option>
-                      <option value={200}>200 lines</option>
-                      <option value={500}>500 lines</option>
-                    </select>
-                  </div>
+                  <select
+                    value={lines}
+                    onChange={(e) => setLines(Number(e.target.value))}
+                    className="border border-white/10 rounded-lg px-2 py-1.5 text-[10px] font-bold bg-[#0f172a] text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                    <option value={500}>500</option>
+                  </select>
 
                   <button
                     onClick={fetchTailLogs}
                     disabled={loading}
-                    className="px-5 py-3 rounded-2xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-700 disabled:opacity-60"
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 text-white text-[10px] font-bold hover:bg-slate-700 disabled:opacity-60 transition"
                   >
-                    Tail Logs
+                    Tail
                   </button>
 
                   <button
                     onClick={mode === "today" ? fetchTodayLogs : fetchTailLogs}
                     disabled={loading}
-                    className="px-5 py-3 rounded-2xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-60"
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-700 disabled:opacity-60 transition"
                   >
-                    Refresh
+                    ⟳
                   </button>
 
                   <button
                     onClick={clearLogs}
                     disabled={loading}
-                    className="px-5 py-3 rounded-2xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 disabled:opacity-60"
+                    className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-[10px] font-bold hover:bg-red-700 disabled:opacity-60 transition"
                   >
-                    Clear Logs
+                    ✕ Clear
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+            {/* Level Filters */}
+            <div className="flex flex-wrap gap-1.5">
               {levelOptions.map((item) => (
                 <button
                   key={item}
                   onClick={() => setLevel(item)}
-                  className={`rounded-2xl px-4 py-3 text-sm font-bold border transition ${
+                  className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition ${
                     level === item
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-[#101827] text-slate-400 border-white/10 hover:bg-white/5"
                   }`}
                 >
                   {item}
-                  <span className="ml-2 text-xs opacity-70">
+                  <span className="ml-1 text-[8px] opacity-70">
                     {counts[item] || 0}
                   </span>
                 </button>
               ))}
             </div>
 
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-              <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            {/* Log Output */}
+            <div className="bg-[#101827] rounded-xl border border-white/10 shadow-lg overflow-hidden">
+              <div className="p-3 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-2">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-800">
-                    Log Output
-                  </h2>
-                  <p className="text-sm text-slate-500">
+                  <h2 className="text-sm font-bold text-white">Log Output</h2>
+                  <p className="text-[9px] text-slate-400">
                     Showing {filteredLogs.length} of {logs.length} log lines
                   </p>
                 </div>
@@ -453,48 +460,46 @@ function LoggerPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search logs..."
-                  className="w-full lg:w-96 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full lg:w-64 border border-white/10 rounded-lg bg-[#0f172a] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               {loading ? (
-                <div className="p-10 text-center text-slate-500 font-semibold">
+                <div className="p-6 text-center text-slate-400 text-sm font-bold">
                   Loading logs...
                 </div>
               ) : filteredLogs.length === 0 ? (
-                <div className="p-10 text-center text-slate-400">
+                <div className="p-6 text-center text-slate-500 text-sm">
                   No logs found
                 </div>
               ) : (
-                <div className="max-h-[650px] overflow-auto bg-slate-950">
-                  <div className="min-w-[900px]">
-                    {filteredLogs.map((line, index) => {
-                      const logLevel = getLogLevel(line);
+                <div className="max-h-[500px] overflow-auto bg-[#0a0c12]">
+                  {filteredLogs.map((line, index) => {
+                    const logLevel = getLogLevel(line);
 
-                      return (
-                        <div
-                          key={`${line}-${index}`}
-                          className="grid grid-cols-[70px_80px_1fr] gap-3 px-4 py-2 border-b border-white/5 hover:bg-white/5 font-mono text-xs"
-                        >
-                          <div className="text-slate-500">#{index + 1}</div>
+                    return (
+                      <div
+                        key={`${line}-${index}`}
+                        className="grid grid-cols-[50px_70px_1fr] gap-2 px-3 py-1.5 border-b border-white/5 hover:bg-white/5 font-mono text-[10px]"
+                      >
+                        <div className="text-slate-500">#{index + 1}</div>
 
-                          <div>
-                            <span
-                              className={`px-2 py-1 rounded-lg font-bold ${getLevelClass(
-                                logLevel
-                              )}`}
-                            >
-                              {logLevel}
-                            </span>
-                          </div>
-
-                          <pre className="whitespace-pre-wrap break-words text-slate-200">
-                            {line}
-                          </pre>
+                        <div>
+                          <span
+                            className={`px-1.5 py-0.5 rounded-lg font-bold ${getLevelClass(
+                              logLevel
+                            )}`}
+                          >
+                            {logLevel}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
+
+                        <pre className="whitespace-pre-wrap break-words text-slate-300 text-[10px]">
+                          {line}
+                        </pre>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -502,162 +507,119 @@ function LoggerPage() {
         ) : (
           <>
             {feedbackMessage && (
-              <div className="mb-5 rounded-2xl bg-white border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 shadow-sm">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-xs font-bold text-slate-300">
                 {feedbackMessage}
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-              <FeedbackInfoCard
-                value={feedbackCounts.total}
-                label="Total Feedback"
-                icon="💬"
-                color="indigo"
-              />
-              <FeedbackInfoCard
-                value={feedbackCounts.newFeedback}
-                label="New Feedback"
-                icon="🆕"
-                color="emerald"
-              />
-              <FeedbackInfoCard
-                value={feedbackCounts.updated}
-                label="Updated Feedback"
-                icon="✏️"
-                color="blue"
-              />
-              <FeedbackInfoCard
-                value={feedbackCounts.uniqueUsers}
-                label="Users"
-                icon="👤"
-                color="purple"
-              />
+            {/* Feedback Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-700 p-3 shadow-lg">
+                <div className="text-lg font-bold text-white">{feedbackCounts.total}</div>
+                <div className="text-[8px] font-bold text-white/80">Total</div>
+              </div>
+              <div className="rounded-lg bg-gradient-to-br from-emerald-600 to-green-700 p-3 shadow-lg">
+                <div className="text-lg font-bold text-white">{feedbackCounts.newFeedback}</div>
+                <div className="text-[8px] font-bold text-white/80">New</div>
+              </div>
+              <div className="rounded-lg bg-gradient-to-br from-blue-600 to-cyan-700 p-3 shadow-lg">
+                <div className="text-lg font-bold text-white">{feedbackCounts.updated}</div>
+                <div className="text-[8px] font-bold text-white/80">Updated</div>
+              </div>
+              <div className="rounded-lg bg-gradient-to-br from-purple-600 to-fuchsia-700 p-3 shadow-lg">
+                <div className="text-lg font-bold text-white">{feedbackCounts.uniqueUsers}</div>
+                <div className="text-[8px] font-bold text-white/80">Users</div>
+              </div>
             </div>
 
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-              <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            {/* Feedback Table */}
+            <div className="bg-[#101827] rounded-xl border border-white/10 shadow-lg overflow-hidden">
+              <div className="p-3 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-2">
                 <div>
-                  <h2 className="text-lg font-extrabold text-slate-800">
+                  <h2 className="text-sm font-bold text-white">
                     Export Document Feedback
                   </h2>
-                  <p className="text-sm text-slate-500">
-                    Showing {filteredFeedbackRows.length} of{" "}
-                    {feedbackRows.length} feedback records
+                  <p className="text-[9px] text-slate-400">
+                    Showing {filteredFeedbackRows.length} of {feedbackRows.length} records
                   </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+                <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                   <input
                     value={feedbackSearch}
                     onChange={(e) => setFeedbackSearch(e.target.value)}
-                    placeholder="Search feedback, user, document, department..."
-                    className="w-full xl:w-[420px] border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Search feedback..."
+                    className="w-full lg:w-64 border border-white/10 rounded-lg bg-[#0f172a] px-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
 
                   <button
                     onClick={fetchFeedback}
                     disabled={feedbackLoading}
-                    className="px-5 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-60"
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold hover:bg-indigo-700 disabled:opacity-60 transition whitespace-nowrap"
                   >
-                    {feedbackLoading ? "Loading..." : "Refresh"}
+                    {feedbackLoading ? "Loading..." : "⟳ Refresh"}
                   </button>
                 </div>
               </div>
 
               {feedbackLoading ? (
-                <div className="p-10 text-center text-slate-500 font-semibold">
+                <div className="p-6 text-center text-slate-400 text-sm font-bold">
                   Loading feedback...
                 </div>
               ) : filteredFeedbackRows.length === 0 ? (
-                <div className="p-10 text-center text-slate-400">
+                <div className="p-6 text-center text-slate-500 text-sm">
                   No feedback found
                 </div>
               ) : (
                 <>
                   <div className="hidden xl:block overflow-x-auto">
                     <table className="min-w-full">
-                      <thead className="bg-slate-50 border-b border-slate-200">
+                      <thead className="bg-[#0f172a] border-b border-white/10">
                         <tr>
-                          <TableHead>ID</TableHead>
-                          <TableHead>User</TableHead>
-                          <TableHead>Notification</TableHead>
-                          <TableHead>Document</TableHead>
-                          <TableHead>Department / Buyer</TableHead>
-                          <TableHead>Feedback</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Action</TableHead>
+                          <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">ID</th>
+                          <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">User</th>
+                          <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Document</th>
+                          <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Dept/Buyer</th>
+                          <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Feedback</th>
+                          <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                          <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Action</th>
                         </tr>
                       </thead>
 
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-white/5">
                         {filteredFeedbackRows.map((item) => {
                           const status = getFeedbackStatus(item);
 
                           return (
-                            <tr
-                              key={item.recId}
-                              className="hover:bg-slate-50 transition"
-                            >
-                              <td className="px-5 py-4 text-sm font-bold text-slate-500">
-                                #{item.recId}
+                            <tr key={item.recId} className="hover:bg-white/5 transition">
+                              <td className="px-3 py-2 text-xs font-bold text-slate-500">#{item.recId}</td>
+                              <td className="px-3 py-2">
+                                <p className="text-xs font-bold text-white">{item.userName || "-"}</p>
+                                <p className="text-[9px] text-slate-400">{item.roleName || "-"}</p>
                               </td>
-
-                              <td className="px-5 py-4">
-                                <p className="text-sm font-extrabold text-slate-800">
-                                  {item.userName || "-"}
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  {item.roleName || "-"}
-                                </p>
-                              </td>
-
-                              <td className="px-5 py-4">
-                                <p className="text-sm font-bold text-slate-700">
-                                  {item.notifyName || "-"}
-                                </p>
-                                <p className="text-xs text-slate-400">
-                                  Created: {formatDateTime(item.createdDate)}
-                                </p>
-                              </td>
-
-                              <td className="px-5 py-4">
-                                <span className="inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
+                              <td className="px-3 py-2">
+                                <span className="inline-flex rounded-lg bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-300">
                                   {item.exportDocument || "-"}
                                 </span>
                               </td>
-
-                              <td className="px-5 py-4">
-                                <p className="text-sm font-bold text-slate-700">
-                                  {item.departmentName || "-"}
-                                </p>
-                                <p className="text-xs text-slate-500">
-                                  {item.customerName || "-"}
-                                </p>
+                              <td className="px-3 py-2">
+                                <p className="text-xs font-bold text-white">{item.departmentName || "-"}</p>
+                                <p className="text-[9px] text-slate-400">{item.customerName || "-"}</p>
                               </td>
-
-                              <td className="px-5 py-4 max-w-xs">
-                                <p className="text-sm font-bold text-slate-800 line-clamp-2">
+                              <td className="px-3 py-2 max-w-xs">
+                                <p className="text-xs font-bold text-white truncate">
                                   {item.feedback || "-"}
                                 </p>
-                                {item.prevFeedback && (
-                                  <p className="text-xs text-slate-400 mt-1 line-clamp-1">
-                                    Previous: {item.prevFeedback}
-                                  </p>
-                                )}
                               </td>
-
-                              <td className="px-5 py-4">
-                                <span
-                                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${status.className}`}
-                                >
+                              <td className="px-3 py-2">
+                                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold ${status.className}`}>
                                   {status.label}
                                 </span>
                               </td>
-
-                              <td className="px-5 py-4">
+                              <td className="px-3 py-2">
                                 <button
                                   onClick={() => setSelectedFeedback(item)}
-                                  className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-700"
+                                  className="px-2.5 py-1 rounded-lg bg-slate-800 text-white text-[9px] font-bold hover:bg-slate-700 transition"
                                 >
                                   View
                                 </button>
@@ -669,54 +631,43 @@ function LoggerPage() {
                     </table>
                   </div>
 
-                  <div className="xl:hidden p-4 space-y-4">
+                  {/* Mobile Cards */}
+                  <div className="xl:hidden p-3 space-y-3">
                     {filteredFeedbackRows.map((item) => {
                       const status = getFeedbackStatus(item);
 
                       return (
                         <div
                           key={item.recId}
-                          className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                          className="rounded-lg border border-white/10 bg-[#0f172a] p-3"
                         >
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start justify-between gap-2">
                             <div>
-                              <p className="text-sm font-extrabold text-slate-800">
+                              <p className="text-xs font-bold text-white">
                                 #{item.recId} • {item.userName || "-"}
                               </p>
-                              <p className="text-xs text-slate-500">
-                                {item.roleName || "-"} •{" "}
-                                {formatDateTime(item.createdDate)}
+                              <p className="text-[9px] text-slate-400">
+                                {item.roleName || "-"}
                               </p>
                             </div>
-
-                            <span
-                              className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${status.className}`}
-                            >
+                            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold ${status.className}`}>
                               {status.label}
                             </span>
                           </div>
 
-                          <div className="mt-3">
-                            <p className="text-xs font-bold text-slate-500">
-                              Document
-                            </p>
-                            <p className="text-sm font-bold text-indigo-700">
-                              {item.exportDocument || "-"}
-                            </p>
+                          <div className="mt-2">
+                            <p className="text-[9px] font-bold text-slate-400">Document</p>
+                            <p className="text-xs font-bold text-indigo-300">{item.exportDocument || "-"}</p>
                           </div>
 
-                          <div className="mt-3">
-                            <p className="text-xs font-bold text-slate-500">
-                              Feedback
-                            </p>
-                            <p className="text-sm font-bold text-slate-800">
-                              {item.feedback || "-"}
-                            </p>
+                          <div className="mt-2">
+                            <p className="text-[9px] font-bold text-slate-400">Feedback</p>
+                            <p className="text-xs font-bold text-white truncate">{item.feedback || "-"}</p>
                           </div>
 
                           <button
                             onClick={() => setSelectedFeedback(item)}
-                            className="mt-4 w-full px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-700"
+                            className="mt-3 w-full px-3 py-1.5 rounded-lg bg-slate-800 text-white text-[10px] font-bold hover:bg-slate-700 transition"
                           >
                             View Details
                           </button>
@@ -731,76 +682,74 @@ function LoggerPage() {
         )}
       </div>
 
+      {/* Feedback Detail Modal */}
       {selectedFeedback && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
-          <div className="w-full max-w-3xl rounded-3xl bg-white shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-slate-950 via-gray-900 to-indigo-950 p-5 text-white flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-xl bg-[#0b1220] border border-white/10 shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-[#101827] to-[#1a1f35] p-4 text-white flex items-start justify-between gap-3 border-b border-white/10">
               <div>
-                <p className="text-xs text-indigo-200 font-bold">
+                <p className="text-[9px] text-indigo-300 font-bold">
                   Feedback Details
                 </p>
-                <h2 className="text-2xl font-extrabold mt-1">
-                  #{selectedFeedback.recId} •{" "}
-                  {selectedFeedback.notifyName || "Notification"}
+                <h2 className="text-base font-bold mt-0.5">
+                  #{selectedFeedback.recId} • {selectedFeedback.notifyName || "Notification"}
                 </h2>
               </div>
 
               <button
                 onClick={() => setSelectedFeedback(null)}
-                className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 text-white transition"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-5 max-h-[75vh] overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DetailBox label="User" value={selectedFeedback.userName} />
-                <DetailBox label="Role" value={selectedFeedback.roleName} />
-                <DetailBox
-                  label="Export Document"
-                  value={selectedFeedback.exportDocument}
-                />
-                <DetailBox
-                  label="Notification"
-                  value={selectedFeedback.notifyName}
-                />
-                <DetailBox
-                  label="Department"
-                  value={`${selectedFeedback.departmentCode || "-"} / ${
-                    selectedFeedback.departmentName || "-"
-                  }`}
-                />
-                <DetailBox
-                  label="Customer"
-                  value={`${selectedFeedback.customerCode || "-"} / ${
-                    selectedFeedback.customerName || "-"
-                  }`}
-                />
-                <DetailBox
-                  label="Created"
-                  value={formatDateTime(selectedFeedback.createdDate)}
-                />
-                <DetailBox
-                  label="Updated"
-                  value={formatDateTime(selectedFeedback.updatedDate)}
-                />
+            <div className="p-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                  <p className="text-[8px] font-bold uppercase text-slate-400">User</p>
+                  <p className="mt-0.5 text-xs font-bold text-white">{selectedFeedback.userName || "-"}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                  <p className="text-[8px] font-bold uppercase text-slate-400">Role</p>
+                  <p className="mt-0.5 text-xs font-bold text-white">{selectedFeedback.roleName || "-"}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                  <p className="text-[8px] font-bold uppercase text-slate-400">Export Document</p>
+                  <p className="mt-0.5 text-xs font-bold text-indigo-300">{selectedFeedback.exportDocument || "-"}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                  <p className="text-[8px] font-bold uppercase text-slate-400">Notification</p>
+                  <p className="mt-0.5 text-xs font-bold text-white">{selectedFeedback.notifyName || "-"}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                  <p className="text-[8px] font-bold uppercase text-slate-400">Department</p>
+                  <p className="mt-0.5 text-xs font-bold text-white">{selectedFeedback.departmentName || "-"}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                  <p className="text-[8px] font-bold uppercase text-slate-400">Customer</p>
+                  <p className="mt-0.5 text-xs font-bold text-white">{selectedFeedback.customerName || "-"}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                  <p className="text-[8px] font-bold uppercase text-slate-400">Created</p>
+                  <p className="mt-0.5 text-xs font-bold text-slate-300">{formatDateTime(selectedFeedback.createdDate)}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                  <p className="text-[8px] font-bold uppercase text-slate-400">Updated</p>
+                  <p className="mt-0.5 text-xs font-bold text-slate-300">{formatDateTime(selectedFeedback.updatedDate)}</p>
+                </div>
               </div>
 
-              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-extrabold uppercase text-slate-500">
-                  Previous Feedback
-                </p>
-                <p className="mt-2 text-sm font-bold text-slate-700 whitespace-pre-wrap">
+              <div className="mt-3 rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                <p className="text-[8px] font-bold uppercase text-slate-400">Previous Feedback</p>
+                <p className="mt-1 text-xs font-bold text-slate-300 whitespace-pre-wrap">
                   {selectedFeedback.prevFeedback || "-"}
                 </p>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
-                <p className="text-xs font-extrabold uppercase text-indigo-500">
-                  Current Feedback
-                </p>
-                <p className="mt-2 text-base font-extrabold text-indigo-900 whitespace-pre-wrap">
+              <div className="mt-2 rounded-lg border border-indigo-500/20 bg-indigo-500/10 p-3">
+                <p className="text-[8px] font-bold uppercase text-indigo-300">Current Feedback</p>
+                <p className="mt-1 text-sm font-bold text-indigo-200 whitespace-pre-wrap">
                   {selectedFeedback.feedback || "-"}
                 </p>
               </div>
@@ -828,55 +777,5 @@ const getLevelClass = (level) => {
       return "bg-slate-500/20 text-slate-300";
   }
 };
-
-const InfoBox = ({ value, label }) => (
-  <div className="bg-white/10 backdrop-blur rounded-2xl px-3 sm:px-5 py-3 sm:py-4 border border-white/10 text-center">
-    <div className="text-xl sm:text-2xl font-bold text-white">{value}</div>
-    <div className="text-[10px] sm:text-xs text-indigo-100">{label}</div>
-  </div>
-);
-
-const FeedbackInfoCard = ({ value, label, icon, color }) => {
-  const colorClass = {
-    indigo: "from-indigo-600 to-violet-700",
-    emerald: "from-emerald-600 to-green-700",
-    blue: "from-blue-600 to-cyan-700",
-    purple: "from-purple-600 to-fuchsia-700",
-  };
-
-  return (
-    <div
-      className={`rounded-3xl bg-gradient-to-br ${
-        colorClass[color] || colorClass.indigo
-      } p-5 shadow-xl text-white`}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-3xl font-extrabold">{value}</p>
-          <p className="text-sm font-bold text-white/80">{label}</p>
-        </div>
-
-        <div className="h-12 w-12 rounded-2xl bg-white/15 flex items-center justify-center text-2xl">
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const TableHead = ({ children }) => (
-  <th className="px-5 py-4 text-left text-xs font-extrabold text-slate-500 uppercase tracking-wider">
-    {children}
-  </th>
-);
-
-const DetailBox = ({ label, value }) => (
-  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-    <p className="text-xs font-extrabold uppercase text-slate-500">{label}</p>
-    <p className="mt-1 text-sm font-bold text-slate-800 break-words">
-      {value || "-"}
-    </p>
-  </div>
-);
 
 export default LoggerPage;
