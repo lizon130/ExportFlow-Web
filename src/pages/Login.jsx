@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 function Login() {
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -46,14 +48,8 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setLoading(true);
     setMessage("");
-
-    const loginData = {
-      userName,
-      password,
-    };
 
     try {
       const response = await fetch(API_URL, {
@@ -62,7 +58,7 @@ function Login() {
           "Content-Type": "application/json",
           accept: "*/*",
         },
-        body: JSON.stringify(loginData),
+        body: JSON.stringify({ userName, password }),
       });
 
       const text = await response.text();
@@ -82,8 +78,6 @@ function Login() {
       localStorage.setItem("expireAt", result.expireAt || "");
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("userId", userId);
-
-      // Optional old keys support
       localStorage.setItem("token", result.accessToken || "");
 
       if (result.expireAt) {
@@ -95,7 +89,6 @@ function Login() {
 
       setMessage("✅ Login successful!");
       setIsSuccess(true);
-
       setUserName("");
       setPassword("");
 
@@ -133,8 +126,12 @@ function Login() {
 
         <div className="w-full md:w-1/2 p-6 sm:p-8 md:p-10">
           <div className="text-center mb-8">
-            <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-gray-900 flex items-center justify-center text-white text-xl font-bold">
-              E
+            <div className="mx-auto mb-4 h-14 w-14 rounded-2xl bg-gray-200 flex items-center justify-center">
+              <img
+                src="/favicon.png"
+                alt="ExportFlow Logo"
+                className="h-10 w-10 rounded-xl object-contain p-1"
+              />
             </div>
 
             <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-800">
@@ -177,14 +174,24 @@ function Login() {
                 Password
               </label>
 
-              <input
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="border border-gray-300 rounded-xl px-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-gray-700 text-sm"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="border border-gray-300 rounded-xl px-4 py-3 pr-12 w-full focus:outline-none focus:ring-2 focus:ring-gray-700 focus:border-gray-700 text-sm"
+                  required
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none p-1 text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-0"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
 
             <button
@@ -198,17 +205,6 @@ function Login() {
             >
               {loading ? "Logging in..." : "Login"}
             </button>
-
-            {/* <div className="bg-gray-100 rounded-xl p-3 text-center text-xs sm:text-sm text-gray-600">
-              Login: <b>admin</b> / <b>12345</b>
-            </div> */}
-
-            {/* <p className="text-center text-gray-600 text-sm">
-              Don't have an account?{" "}
-              <a href="/register" className="text-blue-600 hover:underline">
-                Register here
-              </a>
-            </p> */}
           </form>
         </div>
       </div>
