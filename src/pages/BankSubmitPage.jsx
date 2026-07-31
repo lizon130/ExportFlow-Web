@@ -17,6 +17,9 @@ function BankSubmitPage() {
   const [bankCurrentPage, setBankCurrentPage] = useState(1);
   const [bankItemsPerPage, setBankItemsPerPage] = useState(20);
 
+  // dept = Department Wise, factory = Factory Wise
+  const [viewMode, setViewMode] = useState("dept");
+
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
@@ -58,6 +61,25 @@ function BankSubmitPage() {
     }
   }, [modalFilteredData, modalItemsPerPage, modalCurrentPage]);
 
+  useEffect(() => {
+    /*
+      FIX:
+      From Date / To Date must refresh dashboard stats and main cards.
+      Before this, dates were only applied inside the modal data.
+    */
+    const timer = setTimeout(() => {
+      if (departmentAccess.loaded) {
+        Promise.all([
+          fetchSummaryStats(departmentAccess),
+          fetchBankSummary(departmentAccess),
+        ]);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDate, toDate, viewMode, departmentAccess.loaded]);
+
   const normalizeArray = (data) => {
     if (Array.isArray(data)) return data;
     if (Array.isArray(data?.data)) return data.data;
@@ -73,6 +95,54 @@ function BankSubmitPage() {
   };
 
   const normalizeText = (value) => String(value ?? "").trim().toLowerCase();
+
+  const getUniqueBankRowKey = (item, index) => {
+    const keyValue =
+      item?.expDocumentNo ||
+      item?.exportDocumentNo ||
+      item?.packagingListNo ||
+      item?.packingListNo ||
+      "";
+
+    if (keyValue) return normalizeText(keyValue);
+
+    return (
+      [
+        item?.departmentCode,
+        item?.departmentName,
+        item?.customerCode,
+        item?.customerName,
+        item?.factoryCode,
+        item?.exFacDate,
+        item?.bankSubmissionDate,
+        item?.shippingDate,
+        item?.styleCode,
+        item?.workOrderNo,
+        item?.contractNo,
+        item?.totalValue,
+        item?.noOfPcs,
+        item?.noOfCarton,
+        item?.recId,
+        item?.id,
+      ]
+        .map((value) => normalizeText(value))
+        .filter(Boolean)
+        .join("|") || `row-${index}`
+    );
+  };
+
+  const removeDuplicateBankRows = (rows) => {
+    const seen = new Set();
+
+    return normalizeArray(rows).filter((item, index) => {
+      const key = getUniqueBankRowKey(item, index);
+
+      if (seen.has(key)) return false;
+
+      seen.add(key);
+      return true;
+    });
+  };
 
   const getStoredJsonValue = (key) => {
     try {
@@ -297,6 +367,8 @@ function BankSubmitPage() {
       department?.departmentName ||
       department?.departmentCode ||
       "Unknown",
+    factoryCode: row?.factoryCode || department?.factoryCode || "",
+    factoryName: row?.factoryName || department?.factoryName || "",
   });
 
   const getRowsScore = (rows, metricFields = []) => {
@@ -317,6 +389,54 @@ function BankSubmitPage() {
     const separator = endpoint.includes("?") ? "&" : "?";
     return `${API_BASE_URL}${endpoint}${separator}depName=${encodeURIComponent(
       depName || ""
+    )}`;
+  };
+
+  const formatDisplayDateToApiDate = (ddmmyyyy) => {
+    if (!ddmmyyyy) return "";
+    const [dd, mm, yyyy] = String(ddmmyyyy).split("-");
+    if (!dd || !mm || !yyyy) return "";
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const addDateParamsToEndpoint = (endpoint) => {
+    /*
+      FIX:
+      UI date state is DD-MM-YYYY, but the API usually expects YYYY-MM-DD.
+      This keeps the UI display unchanged and sends API-safe dates.
+    */
+    const apiFromDate = formatDisplayDateToApiDate(fromDate);
+    const apiToDate = formatDisplayDateToApiDate(toDate);
+
+    const params = [];
+
+    if (apiFromDate) params.push(`fromDate=${encodeURIComponent(apiFromDate)}`);
+    if (apiToDate) params.push(`toDate=${encodeURIComponent(apiToDate)}`);
+
+    if (!params.length) return endpoint;
+
+    const separator = endpoint.includes("?") ? "&" : "?";
+    return `${endpoint}${separator}${params.join("&")}`;
+  };
+
+  const buildFactoryBankListEndpoint = (factoryCode = "") => {
+    /*
+      Factory Wise detail endpoint:
+      /api/Export/Get-By-Factory-Bank-Submission-Date-List?depName=ttl
+
+      depName is used by API as factoryCode.
+      ttl / TTL both work because modal data is matched case-insensitively.
+    */
+    const apiFromDate = formatDisplayDateToApiDate(fromDate);
+    const apiToDate = formatDisplayDateToApiDate(toDate);
+
+    const params = [`depName=${encodeURIComponent(factoryCode || "")}`];
+
+    if (apiFromDate) params.push(`fromDate=${encodeURIComponent(apiFromDate)}`);
+    if (apiToDate) params.push(`toDate=${encodeURIComponent(apiToDate)}`);
+
+    return `/api/Export/Get-By-Factory-Bank-Submission-Date-List?${params.join(
+      "&"
     )}`;
   };
 
@@ -486,11 +606,61 @@ function BankSubmitPage() {
     await Promise.all([fetchSummaryStats(access), fetchBankSummary(access)]);
   };
 
+  const fetchDateFilteredBankRowsForDepartments = async (accessOverride) => {
+    /*
+      FIX:
+      Count/stat APIs do not reliably apply From Date / To Date.
+      So when date filter is active, use the detail API and calculate
+      the pending/submitted/total values from filtered rows.
+    */
+    const detailEndpoint = addDateParamsToEndpoint(
+      "/api/Export/Get-By-Dept-Bank-Submission-Date-List"
+    );
+
+    const detailRows = await fetchRowsForAssignedDepartments(
+      detailEndpoint,
+      accessOverride,
+      ["totalValue", "noOfPcs", "noOfCarton"]
+    );
+
+    return filterBySelectedDates(detailRows);
+  };
+
+  const calculateDateFilteredSummaryStats = (rows) => {
+    const filteredRows = Array.isArray(rows) ? rows : [];
+
+    const pendingRows = filteredRows.filter((row) => !row?.bankSubmissionDate);
+    const submittedRows = filteredRows.filter((row) => row?.bankSubmissionDate);
+
+    const totalValue = filteredRows.reduce(
+      (sum, item) =>
+        sum +
+        (getNumber(item?.totalValue) ||
+          getNumber(item?.totalExportValue) ||
+          getNumber(item?.pendingValue) ||
+          0),
+      0
+    );
+
+    return {
+      totalValue,
+      totalPending: pendingRows.length,
+      totalSubmitted: submittedRows.length,
+      totalFiles: filteredRows.length,
+    };
+  };
+
   const fetchSummaryStats = async (accessOverride = departmentAccess) => {
     try {
       const activeAccess = accessOverride?.loaded
         ? accessOverride
         : await loadDepartmentAccess();
+
+      if (fromDate || toDate) {
+        const filteredRows = await fetchDateFilteredBankRowsForDepartments(activeAccess);
+        setSummaryStats(calculateDateFilteredSummaryStats(filteredRows));
+        return;
+      }
 
       const [pendingArray, completedArray] = await Promise.all([
         fetchRowsForAssignedDepartments(
@@ -559,6 +729,106 @@ function BankSubmitPage() {
     }
   };
 
+  const buildDateAwarePendingBankSummary = async (activeAccess) => {
+    /*
+      FIX:
+      Main department cards must also follow From Date / To Date.
+      We build cards from filtered detail rows when dates are selected.
+    */
+    const detailRows = await fetchDateFilteredBankRowsForDepartments(activeAccess);
+    const pendingRows = detailRows.filter((row) => !row?.bankSubmissionDate);
+
+    const grouped = new Map();
+
+    pendingRows.forEach((row, index) => {
+      const key = normalizeText(
+        row?.departmentCode ||
+          row?.departmentName ||
+          row?.customerName ||
+          `unknown-${index}`
+      );
+
+      const existing = grouped.get(key) || {
+        ...row,
+        pendingBankSubmissionDateCount: 0,
+        pendingBank: 0,
+        totalValue: 0,
+        customerName: row?.customerName || row?.departmentName || "Unknown",
+        departmentName: row?.departmentName || row?.departmentCode || "-",
+        departmentCode: row?.departmentCode || "",
+      };
+
+      existing.pendingBankSubmissionDateCount += 1;
+      existing.pendingBank += 1;
+      existing.totalValue += getNumber(row?.totalValue);
+
+      grouped.set(key, existing);
+    });
+
+    return Array.from(grouped.values());
+  };
+
+  const getFactoryDisplayName = (item) => {
+    const factoryCode = String(item?.factoryCode || "").trim();
+    const factoryName = String(item?.factoryName || "").trim();
+
+    if (
+      factoryCode &&
+      factoryName &&
+      normalizeText(factoryCode) !== normalizeText(factoryName)
+    ) {
+      return `${factoryCode} • ${factoryName}`;
+    }
+
+    return factoryCode || factoryName || "Unknown Factory";
+  };
+
+  const buildFactoryWiseBankSummary = (rows) => {
+    /*
+      Factory wise implementation:
+      - Groups bank submission pending data by factoryCode.
+      - Factory cards are summary only.
+      - Factory cards will NOT open the details modal/list.
+    */
+    const factoryMap = new Map();
+
+    normalizeArray(rows).forEach((item, index) => {
+      const pendingCount =
+        getNumber(item?.pendingBankSubmissionDateCount || item?.pendingBank) || 1;
+
+      if (pendingCount <= 0) return;
+
+      const factoryCode =
+        String(item?.factoryCode || "Unknown").trim() || "Unknown";
+      const key = normalizeText(factoryCode) || `factory-${index}`;
+
+      const current = factoryMap.get(key) || {
+        ...item,
+        isFactoryWise: true,
+        factoryCode,
+        factoryName: item?.factoryName || "",
+        customerName: getFactoryDisplayName(item),
+        departmentName: "Factory Wise Summary",
+        departmentCode: factoryCode,
+        pendingBankSubmissionDateCount: 0,
+        pendingBank: 0,
+        totalValue: 0,
+      };
+
+      current.pendingBankSubmissionDateCount += pendingCount;
+      current.pendingBank += pendingCount;
+      current.totalValue += getNumber(
+        item?.totalValue || item?.totalExportValue || item?.pendingValue
+      );
+
+      factoryMap.set(key, current);
+    });
+
+    return Array.from(factoryMap.values()).sort(
+      (a, b) => (b?.pendingBank || 0) - (a?.pendingBank || 0)
+    );
+  };
+
   const fetchBankSummary = async (accessOverride = departmentAccess) => {
     setBankLoading(true);
     setError("");
@@ -568,29 +838,38 @@ function BankSubmitPage() {
         ? accessOverride
         : await loadDepartmentAccess();
 
-      const dataArray = await fetchRowsForAssignedDepartments(
-        "/api/Export/Get-Pending-Bank-Submission-Date-Count",
-        activeAccess,
-        [
-          "pendingBankSubmissionDateCount",
-          "pendingBank",
-          "totalValue",
-          "totalExportValue",
-          "pendingValue",
-        ]
-      );
+      const dataArray = fromDate || toDate
+        ? viewMode === "factory"
+          ? (await fetchDateFilteredBankRowsForDepartments(activeAccess)).filter(
+              (row) => !row?.bankSubmissionDate
+            )
+          : await buildDateAwarePendingBankSummary(activeAccess)
+        : await fetchRowsForAssignedDepartments(
+            "/api/Export/Get-Pending-Bank-Submission-Date-Count",
+            activeAccess,
+            [
+              "pendingBankSubmissionDateCount",
+              "pendingBank",
+              "totalValue",
+              "totalExportValue",
+              "pendingValue",
+            ]
+          );
 
-      const pendingBankDepartments = dataArray
-        .filter((item) => getNumber(item?.pendingBankSubmissionDateCount) > 0)
-        .map((item) => ({
-          ...item,
-          pendingBank: getNumber(item?.pendingBankSubmissionDateCount),
-          customerName: item?.customerName || item?.departmentName || "Unknown",
-          departmentName: item?.departmentName || item?.departmentCode || "-",
-          departmentCode: item?.departmentCode || "",
-          totalValue: getNumber(item?.totalValue),
-        }))
-        .sort((a, b) => (b?.pendingBank || 0) - (a?.pendingBank || 0));
+      const pendingBankDepartments =
+        viewMode === "factory"
+          ? buildFactoryWiseBankSummary(dataArray)
+          : dataArray
+              .filter((item) => getNumber(item?.pendingBankSubmissionDateCount || item?.pendingBank) > 0)
+              .map((item) => ({
+                ...item,
+                pendingBank: getNumber(item?.pendingBankSubmissionDateCount || item?.pendingBank),
+                customerName: item?.customerName || item?.departmentName || "Unknown",
+                departmentName: item?.departmentName || item?.departmentCode || "-",
+                departmentCode: item?.departmentCode || "",
+                totalValue: getNumber(item?.totalValue),
+              }))
+              .sort((a, b) => (b?.pendingBank || 0) - (a?.pendingBank || 0));
 
       setBankSummaryData(pendingBankDepartments);
       setBankCurrentPage(1);
@@ -623,9 +902,14 @@ function BankSubmitPage() {
   const getFilterDateValue = (item) => {
     return (
       item?.bankSubmissionDate ||
+      item?.bankSubmitDate ||
+      item?.bankSubmissionDueDate ||
       item?.shippingDate ||
+      item?.shipDate ||
       item?.blDate ||
       item?.exFacDate ||
+      item?.exFactoryDate ||
+      item?.createdDate ||
       null
     );
   };
@@ -663,6 +947,11 @@ function BankSubmitPage() {
         item?.expDocumentNo?.toString().toLowerCase().includes(searchLower) ||
         item?.customerName?.toLowerCase().includes(searchLower) ||
         item?.departmentName?.toLowerCase().includes(searchLower) ||
+        item?.departmentCode?.toLowerCase().includes(searchLower) ||
+        item?.factoryCode?.toLowerCase().includes(searchLower) ||
+        item?.exFactoryName?.toLowerCase().includes(searchLower) ||
+        item?.workOrderNo?.toLowerCase().includes(searchLower) ||
+        item?.contractNo?.toLowerCase().includes(searchLower) ||
         item?.totalValue?.toString().toLowerCase().includes(searchLower)
     );
   };
@@ -677,7 +966,7 @@ function BankSubmitPage() {
         : await loadDepartmentAccess();
 
       const dataArray = await fetchDepartmentRows(
-        "/api/Export/Get-By-Dept-Bank-Submission-Date-List",
+        addDateParamsToEndpoint("/api/Export/Get-By-Dept-Bank-Submission-Date-List"),
         item,
         ["totalValue", "noOfPcs", "noOfCarton"],
         activeAccess
@@ -685,7 +974,7 @@ function BankSubmitPage() {
 
       const pendingRows = dataArray.filter((row) => !row?.bankSubmissionDate);
       const rowsForModal = pendingRows.length > 0 ? pendingRows : dataArray;
-      const dateFilteredData = filterBySelectedDates(rowsForModal);
+      const dateFilteredData = filterBySelectedDates(removeDuplicateBankRows(rowsForModal));
 
       setModalBankData(dateFilteredData);
       setModalFilteredData(dateFilteredData);
@@ -701,7 +990,56 @@ function BankSubmitPage() {
     }
   };
 
+  const fetchModalFactoryBankData = async (item) => {
+    const factoryCode = item?.factoryCode || item?.departmentCode || "";
+    const normalizedFactoryCode = normalizeText(factoryCode);
+
+    setModalLoading(true);
+    setModalSearchText("");
+    setModalCurrentPage(1);
+    setModalDepartmentName(
+      `${factoryCode || "Unknown Factory"} • Factory Bank Submission Pending Details`
+    );
+    setShowDetailsModal(true);
+
+    try {
+      const activeAccess = departmentAccess?.loaded
+        ? departmentAccess
+        : await loadDepartmentAccess();
+
+      const endpoint = buildFactoryBankListEndpoint(factoryCode);
+      const url = `${API_BASE_URL}${endpoint}`;
+
+      const data = await fetchJson(url, activeAccess?.accessToken || "");
+
+      const dataArray = normalizeArray(data).filter(
+        (row) => normalizeText(row?.factoryCode) === normalizedFactoryCode
+      );
+
+      const pendingRows = dataArray.filter((row) => !row?.bankSubmissionDate);
+      const rowsForModal = pendingRows.length > 0 ? pendingRows : dataArray;
+      const dateFilteredData = filterBySelectedDates(
+        removeDuplicateBankRows(rowsForModal)
+      );
+
+      setModalBankData(dateFilteredData);
+      setModalFilteredData(dateFilteredData);
+    } catch (fetchError) {
+      console.error("Factory bank modal fetch error:", fetchError);
+      setModalBankData([]);
+      setModalFilteredData([]);
+      setModalCurrentPage(1);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   const handleCardClick = async (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      await fetchModalFactoryBankData(item);
+      return;
+    }
+
     setModalDepartmentName(getFullDisplayName(item));
     setShowDetailsModal(true);
     await fetchModalBankData(item);
@@ -764,7 +1102,9 @@ function BankSubmitPage() {
       (item) =>
         item?.customerName?.toLowerCase().includes(key) ||
         item?.departmentName?.toLowerCase().includes(key) ||
-        item?.departmentCode?.toLowerCase().includes(key)
+        item?.departmentCode?.toLowerCase().includes(key) ||
+        item?.factoryCode?.toLowerCase().includes(key) ||
+        item?.factoryName?.toLowerCase().includes(key)
     );
   }, [bankSafeData, searchText]);
 
@@ -834,13 +1174,32 @@ function BankSubmitPage() {
 
   const cardIcons = ["🏦", "📦", "🏬", "📄", "🛒", "🏭", "🧾", "💳"];
 
-  const getDisplayName = (item) =>
-    item?.customerName || item?.departmentName || "Unknown";
+  const getDisplayName = (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      return (
+        item?.factoryCode ||
+        item?.factoryName ||
+        item?.customerName ||
+        "Unknown Factory"
+      );
+    }
 
-  const getDepartmentSubText = (item) =>
-    item?.departmentName || item?.departmentCode || "-";
+    return item?.customerName || item?.departmentName || "Unknown";
+  };
+
+  const getDepartmentSubText = (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      return item?.factoryName || "Factory Wise Summary";
+    }
+
+    return item?.departmentName || item?.departmentCode || "-";
+  };
 
   const getFullDisplayName = (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      return getFactoryDisplayName(item);
+    }
+
     const customer = item?.customerName || "Unknown";
     const department = item?.departmentName || item?.departmentCode || "";
     return department && department !== customer
@@ -905,26 +1264,27 @@ function BankSubmitPage() {
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
         <div className="rounded-2xl bg-[#101827] border border-white/10 p-4 shadow-2xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        
+          {/* Filters - Compact */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
             <div>
-              <h1 className="text-2xl font-black text-white">🏦 Bank Submit</h1>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Converted from React Native BankSubmit screen using same APIs
-              </p>
+              <label className="mb-1 block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                View By
+              </label>
+              <select
+                value={viewMode}
+                onChange={(e) => {
+                  setViewMode(e.target.value);
+                  setSearchText("");
+                  setBankCurrentPage(1);
+                }}
+                className="w-full rounded-xl bg-[#0b1220] border border-slate-700/60 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="dept">Department Wise</option>
+                <option value="factory">Factory Wise</option>
+              </select>
             </div>
 
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={refreshing || bankLoading}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60 transition whitespace-nowrap"
-            >
-              {refreshing ? "Refreshing..." : "🔄 Refresh"}
-            </button>
-          </div>
-
-          {/* Date Filters - Compact */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
                 From Date
@@ -950,6 +1310,15 @@ function BankSubmitPage() {
             </div>
 
             <div className="flex items-end gap-2">
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={bankLoading || refreshing}
+                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-60 transition"
+              >
+                {bankLoading || refreshing ? "Filtering..." : "Apply"}
+              </button>
+
               {hasActiveFilters && (
                 <>
                   <button
@@ -957,9 +1326,6 @@ function BankSubmitPage() {
                     onClick={() => {
                       setFromDate("");
                       setToDate("");
-                      setTimeout(() => {
-                        onRefresh();
-                      }, 100);
                     }}
                     className="rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20 transition"
                   >
@@ -998,12 +1364,16 @@ function BankSubmitPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-white/5">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-black text-white">📊 Bank Submission Summary</h2>
-              <span className="text-xs text-slate-400">Overview by active department</span>
+              <span className="text-xs text-slate-400">
+                {viewMode === "factory" ? "Overview by factory" : "Overview by active department"}
+              </span>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-blue-500/10 rounded-full px-3 py-1 border border-blue-500/20">
-                <span className="text-xs font-bold text-blue-300">Departments</span>
+                <span className="text-xs font-bold text-blue-300">
+                  {viewMode === "factory" ? "Factories" : "Departments"}
+                </span>
                 <span className="text-sm font-black text-white">{totalDepartmentCount}</span>
               </div>
               <div className="flex items-center gap-2 bg-emerald-500/10 rounded-full px-3 py-1 border border-emerald-500/20">
@@ -1036,7 +1406,9 @@ function BankSubmitPage() {
           {/* Search & Cards */}
           <div className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-              <h3 className="text-sm font-black text-white">Pending Bank Submission</h3>
+              <h3 className="text-sm font-black text-white">
+                {viewMode === "factory" ? "Pending Bank Submission by Factory" : "Pending Bank Submission"}
+              </h3>
 
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
@@ -1046,14 +1418,14 @@ function BankSubmitPage() {
                     setSearchText(e.target.value);
                     setBankCurrentPage(1);
                   }}
-                  placeholder="Search department..."
+                  placeholder={viewMode === "factory" ? "Search factory..." : "Search department..."}
                   className="w-full sm:w-56 rounded-xl bg-[#1e293b] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             {bankLoading ? (
-              <div className="py-8 text-center text-slate-400 text-sm">Loading pending bank submissions...</div>
+              <div className="py-8 text-center text-slate-400 text-sm">{hasActiveFilters ? "Applying date filter..." : "Loading pending bank submissions..."}</div>
             ) : bankCurrentPageData.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -1065,10 +1437,15 @@ function BankSubmitPage() {
 
                     return (
                       <button
-                        key={`${item?.departmentCode || item?.customerName || index}-${index}`}
+                        key={`${item?.factoryCode || item?.departmentCode || item?.customerName || index}-${index}`}
                         type="button"
                         onClick={() => handleCardClick(item)}
-                        className="relative overflow-hidden rounded-xl bg-[#161b26] border border-[#293244] p-3 text-left shadow-lg hover:border-blue-500/50 hover:bg-[#1a2232] transition-all group"
+                        className="relative overflow-hidden rounded-xl bg-[#161b26] border border-[#293244] p-3 text-left shadow-lg transition-all group hover:border-blue-500/50 hover:bg-[#1a2232]"
+                        title={
+                          viewMode === "factory"
+                            ? "Click to view factory bank submission details"
+                            : "Click to view details"
+                        }
                         style={{ borderLeftWidth: 3, borderLeftColor: accentColor }}
                       >
                         <div
@@ -1140,7 +1517,11 @@ function BankSubmitPage() {
             ) : (
               <div className="py-12 text-center">
                 <div className="text-3xl mb-2">✅</div>
-                <h3 className="text-sm font-bold text-slate-200">No pending bank submission found</h3>
+                <h3 className="text-sm font-bold text-slate-200">
+                  {viewMode === "factory"
+                    ? "No pending factory summary found"
+                    : "No pending bank submission found"}
+                </h3>
                 <p className="text-xs text-slate-500 mt-1">All departments are up to date</p>
               </div>
             )}
@@ -1286,7 +1667,7 @@ function DetailsModal({
         <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20 text-base flex-shrink-0">
-              🏦
+              {title?.toLowerCase().includes("factory") ? "🏭" : "🏦"}
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-white">{title}</h3>
@@ -1325,7 +1706,7 @@ function DetailsModal({
               <input
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                placeholder="Search packing, export no, department..."
+                placeholder="Search packing, export no, department, factory, WO, contract..."
                 className="w-full rounded-xl bg-[#111827] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -1347,8 +1728,9 @@ function DetailsModal({
           </div>
         ) : data.length > 0 ? (
           <div className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0f172a]">
-            <div className="grid grid-cols-[1.55fr_0.9fr_1.05fr] bg-[#16213d] border-b border-white/10 text-[10px] font-bold uppercase text-slate-300">
-              <div className="px-3 py-2">Document</div>
+            <div className="grid grid-cols-[1.45fr_0.85fr_0.85fr_1fr] bg-[#16213d] border-b border-white/10 text-[10px] font-bold uppercase text-slate-300">
+              <div className="px-3 py-2">Document / Department</div>
+              <div className="px-3 py-2">Factory / Customer</div>
               <div className="px-3 py-2">Qty / Value</div>
               <div className="px-3 py-2">Dates / Status</div>
             </div>
@@ -1360,8 +1742,8 @@ function DetailsModal({
 
                 return (
                   <div
-                    key={`${item?.packagingListNo || item?.expDocumentNo || index}-${index}`}
-                    className={`grid grid-cols-[1.55fr_0.9fr_1.05fr] border-b border-white/5 ${
+                    key={`${item?.factoryCode || item?.packagingListNo || item?.expDocumentNo || index}-${index}`}
+                    className={`grid grid-cols-[1.45fr_0.85fr_0.85fr_1fr] border-b border-white/5 ${
                       index % 2 === 0 ? "bg-[#0f172a]" : "bg-[#111c31]"
                     }`}
                   >
@@ -1371,17 +1753,23 @@ function DetailsModal({
                           {(currentPage - 1) * itemsPerPage + index + 1}
                         </span>
                         <span className="truncate text-xs font-bold text-white">
-                          {item?.packagingListNo || "-"}
+                          {item?.expDocumentNo || item?.packagingListNo || "-"}
                         </span>
                       </div>
-                      <p className="truncate text-[10px] font-bold text-violet-300 mt-0.5">
-                        {item?.expDocumentNo || "-"}
-                      </p>
                       <p className="truncate text-[10px] font-bold text-blue-300 mt-0.5">
-                        {item?.customerName || "-"}
+                        {item?.departmentName || item?.departmentCode || "-"}
                       </p>
                       <p className="truncate text-[9px] font-bold text-slate-400">
-                        {item?.departmentName || "-"}
+                        WO: {item?.workOrderNo || "-"} | Contract: {item?.contractNo || "-"}
+                      </p>
+                    </div>
+
+                    <div className="px-3 py-2 min-w-0">
+                      <p className="truncate text-xs font-bold text-amber-300">
+                        {item?.factoryCode || item?.exFactoryName || "-"}
+                      </p>
+                      <p className="truncate text-[10px] font-bold text-slate-300">
+                        {item?.customerName || item?.customerCode || "-"}
                       </p>
                     </div>
 

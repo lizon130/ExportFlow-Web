@@ -139,10 +139,25 @@ function UsersTable() {
 
       const data = await res.json();
 
-      setSelectedUser(data);
-      setProfileOpen(true);
+      console.log("Profile data:", data);
+      console.log("Departments from profile:", data.departments);
 
-      await fetchUserDepartments(userId);
+      setSelectedUser(data);
+
+      // IMPORTANT: Set userDepartments directly from profile data
+      if (data.departments && Array.isArray(data.departments) && data.departments.length > 0) {
+        setUserDepartments(data.departments);
+        const ids = data.departments
+          .map((item) => item.recId)
+          .filter((id) => Number.isFinite(Number(id)))
+          .map(Number);
+        setSelectedDepartmentIds(ids);
+      } else {
+        // Fallback: fetch from the other endpoint
+        await fetchUserDepartments(userId);
+      }
+
+      setProfileOpen(true);
     } catch (error) {
       console.error(error);
       setMessage("❌ Failed to load user profile");
@@ -273,10 +288,10 @@ function UsersTable() {
 
   const columns = useMemo(
     () => [
-     {
+      {
         header: "#",
         cell: ({ row }) => (
-          <span style={{ color: "white" }}>
+          <span className="text-[10px] font-bold text-slate-300">
             {row.index + 1}
           </span>
         ),
@@ -291,13 +306,17 @@ function UsersTable() {
 
           return (
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
                 {initials}
               </div>
 
               <div className="min-w-0">
-                <div className="text-xs font-bold text-white truncate">{user.userName}</div>
-                <div className="text-[9px] text-slate-400 truncate">{user.email}</div>
+                <div className="text-xs font-bold text-white truncate">
+                  {user.userName}
+                </div>
+                <div className="text-[9px] text-slate-400 truncate">
+                  {user.email}
+                </div>
               </div>
             </div>
           );
@@ -335,6 +354,7 @@ function UsersTable() {
         header: "Action",
         cell: ({ row }) => (
           <button
+            type="button"
             onClick={() => fetchUserProfile(row.original.recId)}
             className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-[9px] font-bold transition"
           >
@@ -393,18 +413,9 @@ function UsersTable() {
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              <div className="bg-white/10 backdrop-blur rounded-lg px-3 py-1.5 border border-white/10 text-center">
-                <div className="text-sm font-bold text-white">{users.length}</div>
-                <div className="text-[8px] text-indigo-200">Users</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-lg px-3 py-1.5 border border-white/10 text-center">
-                <div className="text-sm font-bold text-white">{roles.length}</div>
-                <div className="text-[8px] text-indigo-200">Roles</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-lg px-3 py-1.5 border border-white/10 text-center">
-                <div className="text-sm font-bold text-white">{allDepartments.length}</div>
-                <div className="text-[8px] text-indigo-200">Depts</div>
-              </div>
+              <MiniInfoBox value={users.length} label="Users" />
+              <MiniInfoBox value={roles.length} label="Roles" />
+              <MiniInfoBox value={allDepartments.length} label="Depts" />
             </div>
           </div>
         </div>
@@ -420,12 +431,16 @@ function UsersTable() {
           <div className="p-3 border-b border-white/10 flex flex-col md:flex-row justify-between md:items-center gap-2">
             <div>
               <h2 className="text-sm font-bold text-white">Users List</h2>
-              <p className="text-[9px] text-slate-400">Loaded from get-all-users-list API</p>
+              <p className="text-[9px] text-slate-400">
+                Loaded from get-all-users-list API
+              </p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <div className="relative w-full sm:w-56">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">
+                  🔍
+                </span>
                 <input
                   type="text"
                   placeholder="Search user..."
@@ -436,6 +451,7 @@ function UsersTable() {
               </div>
 
               <button
+                type="button"
                 onClick={fetchUsers}
                 disabled={loading}
                 className="px-3 py-1.5 bg-slate-800 text-white hover:bg-slate-700 rounded-lg text-[10px] font-bold transition disabled:opacity-60 whitespace-nowrap"
@@ -444,6 +460,7 @@ function UsersTable() {
               </button>
 
               <button
+                type="button"
                 onClick={openCreateModal}
                 className="px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-[10px] font-bold transition whitespace-nowrap"
               >
@@ -508,12 +525,12 @@ function UsersTable() {
                   className="rounded-lg border border-white/10 bg-[#0f172a] p-3"
                 >
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
                         {initials}
                       </div>
 
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="text-xs font-bold text-white truncate">
                           {user.userName}
                         </h3>
@@ -524,7 +541,7 @@ function UsersTable() {
                     </div>
 
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                      className={`px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
                         user.isActive
                           ? "bg-emerald-500/20 text-emerald-300"
                           : "bg-red-500/20 text-red-300"
@@ -535,6 +552,7 @@ function UsersTable() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => fetchUserProfile(user.recId)}
                     className="w-full px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 transition"
                   >
@@ -545,7 +563,6 @@ function UsersTable() {
             })}
           </div>
 
-          {/* Pagination */}
           {table.getPageCount() > 1 && (
             <div className="p-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <p className="text-[9px] text-slate-400">
@@ -553,6 +570,7 @@ function UsersTable() {
               </p>
               <div className="flex gap-1.5">
                 <button
+                  type="button"
                   onClick={() => table.previousPage()}
                   disabled={!table.getCanPreviousPage()}
                   className="px-2.5 py-1 rounded-lg bg-slate-800 text-white text-[10px] font-bold hover:bg-slate-700 disabled:opacity-40 transition"
@@ -560,6 +578,7 @@ function UsersTable() {
                   ◀
                 </button>
                 <button
+                  type="button"
                   onClick={() => table.nextPage()}
                   disabled={!table.getCanNextPage()}
                   className="px-2.5 py-1 rounded-lg bg-slate-800 text-white text-[10px] font-bold hover:bg-slate-700 disabled:opacity-40 transition"
@@ -579,7 +598,9 @@ function UsersTable() {
             <div className="bg-gradient-to-r from-[#101827] to-[#1a1f35] p-4 text-white flex justify-between items-start gap-3 border-b border-white/10">
               <div>
                 <h2 className="text-base font-bold">Create New User</h2>
-                <p className="text-[10px] text-indigo-200/60">Register user and assign role</p>
+                <p className="text-[10px] text-indigo-200/60">
+                  Register user and assign role
+                </p>
               </div>
 
               <button
@@ -592,43 +613,36 @@ function UsersTable() {
             </div>
 
             <form onSubmit={handleCreateUser} className="p-4 space-y-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-0.5">Username</label>
-                <input
-                  name="userName"
-                  value={createForm.userName}
-                  onChange={handleCreateChange}
-                  placeholder="Robi"
-                  className="w-full border border-white/10 rounded-lg bg-[#0f172a] px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+              <DarkInput
+                label="Username"
+                name="userName"
+                value={createForm.userName}
+                onChange={handleCreateChange}
+                placeholder="Robi"
+              />
+
+              <DarkInput
+                label="Email"
+                type="email"
+                name="email"
+                value={createForm.email}
+                onChange={handleCreateChange}
+                placeholder="robi@tusuka.com"
+              />
+
+              <DarkInput
+                label="Password"
+                type="password"
+                name="password"
+                value={createForm.password}
+                onChange={handleCreateChange}
+                placeholder="••••••"
+              />
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-0.5">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={createForm.email}
-                  onChange={handleCreateChange}
-                  placeholder="robi@tusuka.com"
-                  className="w-full border border-white/10 rounded-lg bg-[#0f172a] px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-0.5">Password</label>
-                <input
-                  type="password"
-                  name="password"
-                  value={createForm.password}
-                  onChange={handleCreateChange}
-                  placeholder="••••••"
-                  className="w-full border border-white/10 rounded-lg bg-[#0f172a] px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-0.5">Role</label>
+                <label className="block text-[10px] font-bold text-slate-400 mb-0.5">
+                  Role
+                </label>
                 <select
                   name="roleRecId"
                   value={createForm.roleRecId}
@@ -673,13 +687,18 @@ function UsersTable() {
             <div className="bg-gradient-to-r from-[#101827] to-[#1a1f35] p-4 text-white flex justify-between items-start gap-3 border-b border-white/10">
               <div>
                 <h2 className="text-base font-bold">{selectedUser.userName}</h2>
-                <p className="text-[10px] text-indigo-200/60">{selectedUser.email}</p>
-                <p className="text-[9px] text-slate-400 mt-0.5">ID: {selectedUser.recId}</p>
+                <p className="text-[10px] text-indigo-200/60">
+                  {selectedUser.email}
+                </p>
+                <p className="text-[9px] text-slate-400 mt-0.5">
+                  ID: {selectedUser.recId}
+                </p>
               </div>
 
               <button
+                type="button"
                 onClick={() => setProfileOpen(false)}
-                className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 transition flex-shrink-0"
+                className="h-8 w-8 rounded-lg bg-white/10 hover:bg-white/20 transition shrink-0"
               >
                 ✕
               </button>
@@ -687,57 +706,62 @@ function UsersTable() {
 
             <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
-                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Roles</h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedUser.roles?.length > 0 ? (
-                      selectedUser.roles.map((role, index) => (
-                        <span key={role.recId || index} className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[9px] font-bold border border-purple-500/20">
-                          {role.roleName}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-slate-400">No roles assigned</span>
-                    )}
-                  </div>
-                </div>
+                <DarkProfileBox
+                  title="Roles"
+                  items={selectedUser.roles}
+                  empty="No roles assigned"
+                  getLabel={(item) => item.roleName}
+                  color="purple"
+                />
 
-                <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
-                  <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Permissions</h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedUser.permissions?.length > 0 ? (
-                      selectedUser.permissions.map((perm, index) => (
-                        <span key={perm.recId || index} className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[9px] font-bold border border-emerald-500/20">
-                          {perm.permissionName}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-slate-400">No permissions assigned</span>
-                    )}
-                  </div>
-                </div>
+                <DarkProfileBox
+                  title="Permissions"
+                  items={selectedUser.permissions}
+                  empty="No permissions assigned"
+                  getLabel={(item) => item.permissionName}
+                  color="emerald"
+                />
               </div>
 
               <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3 mb-4">
-                <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Current Departments</h3>
+                <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Current Departments
+                </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {userDepartments.length > 0 ? (
                     userDepartments.map((dept, index) => (
-                      <span key={dept.recId || index} className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[9px] font-bold border border-blue-500/20">
-                        {dept.departmentName || dept.name || dept.recId}
+                      <span
+                        key={dept.recId || index}
+                        className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[9px] font-bold border border-blue-500/20"
+                      >
+                        {dept.departmentName ||
+                          dept.deptName ||
+                          dept.name ||
+                          dept.departmentCode ||
+                          dept.deptCode ||
+                          dept.recId}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-slate-400">No assigned departments</span>
+                    <span className="text-xs text-slate-400">
+                      No assigned departments
+                    </span>
                   )}
                 </div>
               </div>
 
-              <form onSubmit={handleSetDepartments} className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+              <form
+                onSubmit={handleSetDepartments}
+                className="rounded-lg border border-white/10 bg-[#0f172a] p-3"
+              >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <div>
-                    <h3 className="text-xs font-bold text-white">Set User Departments</h3>
-                    <p className="text-[9px] text-slate-400">Select departments to assign</p>
+                    <h3 className="text-xs font-bold text-white">
+                      Set User Departments
+                    </h3>
+                    <p className="text-[9px] text-slate-400">
+                      Select departments to assign
+                    </p>
                   </div>
                   <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[9px] font-bold border border-indigo-500/20">
                     Selected: {selectedDepartmentIds.length}
@@ -812,5 +836,56 @@ function UsersTable() {
     </div>
   );
 }
+
+const MiniInfoBox = ({ value, label }) => (
+  <div className="bg-white/10 backdrop-blur rounded-lg px-3 py-1.5 border border-white/10 text-center">
+    <div className="text-sm font-bold text-white">{value}</div>
+    <div className="text-[8px] text-indigo-200">{label}</div>
+  </div>
+);
+
+const DarkInput = ({ label, ...props }) => (
+  <div>
+    <label className="block text-[10px] font-bold text-slate-400 mb-0.5">
+      {label}
+    </label>
+    <input
+      {...props}
+      className="w-full border border-white/10 rounded-lg bg-[#0f172a] px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+    />
+  </div>
+);
+
+const DarkProfileBox = ({ title, items, empty, getLabel, color }) => {
+  const colorClasses = {
+    purple: "bg-purple-500/20 text-purple-300 border-purple-500/20",
+    emerald: "bg-emerald-500/20 text-emerald-300 border-emerald-500/20",
+    blue: "bg-blue-500/20 text-blue-300 border-blue-500/20",
+  };
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+      <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+        {title}
+      </h3>
+      <div className="flex flex-wrap gap-1.5">
+        {items && items.length > 0 ? (
+          items.map((item, index) => (
+            <span
+              key={item.recId || item.id || index}
+              className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${
+                colorClasses[color] || colorClasses.blue
+              }`}
+            >
+              {getLabel(item)}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-slate-400">{empty}</span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default UsersTable;

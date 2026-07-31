@@ -10,6 +10,9 @@ function ShippingPage() {
   const [shippingCurrentPage, setShippingCurrentPage] = useState(1);
   const [shippingItemsPerPage, setShippingItemsPerPage] = useState(20);
 
+  // dept = Department Wise, factory = Factory Wise
+  const [viewMode, setViewMode] = useState("dept");
+
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
@@ -41,6 +44,20 @@ function ShippingPage() {
     }
   }, [modalFilteredData, modalItemsPerPage, modalCurrentPage]);
 
+  useEffect(() => {
+    /*
+      FIX:
+      From Date / To Date must refresh the main summary cards also.
+      Before this, selected dates were only used after opening the detail modal.
+    */
+    const timer = setTimeout(() => {
+      fetchShippingSummary();
+    }, 250);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDate, toDate, viewMode]);
+
   const normalizeArray = (data) => {
     if (Array.isArray(data)) return data;
     if (Array.isArray(data?.data)) return data.data;
@@ -52,20 +69,41 @@ function ShippingPage() {
 
   const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
-  const getUniqueRowKey = (item, index) =>
-    normalizeText(
+  const getUniqueRowKey = (item, index) => {
+    const keyValue =
       item?.shippingId ||
-        item?.expDocumentNo ||
-        item?.exportDocumentNo ||
-        item?.packagingListNo ||
-        item?.packingListNo ||
-        item?.departmentCode ||
-        item?.departmentName ||
-        item?.customerName ||
-        item?.recId ||
-        item?.id ||
-        `row-${index}`
+      item?.expDocumentNo ||
+      item?.exportDocumentNo ||
+      item?.packagingListNo ||
+      item?.packingListNo ||
+      "";
+
+    if (keyValue) return normalizeText(keyValue);
+
+    return (
+      [
+        item?.departmentCode,
+        item?.departmentName,
+        item?.customerCode,
+        item?.customerName,
+        item?.factoryCode,
+        item?.exFacDate,
+        item?.shippingDate,
+        item?.shipmentDate,
+        item?.styleCode,
+        item?.workOrderNo,
+        item?.contractNo,
+        item?.totalValue,
+        item?.noOfPcs,
+        item?.noOfCarton,
+        item?.recId,
+        item?.id,
+      ]
+        .map((value) => normalizeText(value))
+        .filter(Boolean)
+        .join("|") || `row-${index}`
     );
+  };
 
   const removeDuplicateRows = (rows) => {
     const seen = new Set();
@@ -343,6 +381,117 @@ function ShippingPage() {
     return removeDuplicateRows(mergedRows);
   };
 
+  const getDateFilteredShippingCountForSummaryRow = async (summaryRow) => {
+    /*
+      FIX:
+      The count API does not use From Date / To Date.
+      So when date filter is active, calculate each card's pending count
+      from the detail endpoint using the selected date range.
+    */
+    const detailEndpoint = buildShippingListEndpoint();
+
+    const rows = await fetchRowsForDepartment(detailEndpoint, {
+      departmentCode: summaryRow?.departmentCode,
+      departmentName: summaryRow?.departmentName || summaryRow?.customerName,
+      customerName: summaryRow?.customerName,
+    });
+
+    const dateFilteredRows = filterBySelectedDates(removeDuplicateRows(rows));
+
+    return {
+      pendingCount: dateFilteredRows.length,
+      totalValue: dateFilteredRows.reduce(
+        (sum, row) => sum + Number(row?.totalValue || 0),
+        0
+      ),
+    };
+  };
+
+  const applyDateFilterToShippingSummaryRows = async (rows) => {
+    if (!fromDate && !toDate) return rows;
+
+    const dateAwareRows = [];
+
+    for (const row of rows) {
+      try {
+        const result = await getDateFilteredShippingCountForSummaryRow(row);
+
+        if (result.pendingCount > 0) {
+          dateAwareRows.push({
+            ...row,
+            pendingShippingDateCount: result.pendingCount,
+            pendingShipping: result.pendingCount,
+            totalValue: result.totalValue,
+          });
+        }
+      } catch (error) {
+        console.error("Error applying date filter to shipping summary row:", error, row);
+      }
+    }
+
+    return dateAwareRows;
+  };
+
+  const getFactoryDisplayName = (item) => {
+    const factoryCode = String(item?.factoryCode || "").trim();
+    const factoryName = String(item?.factoryName || "").trim();
+
+    if (
+      factoryCode &&
+      factoryName &&
+      normalizeText(factoryCode) !== normalizeText(factoryName)
+    ) {
+      return `${factoryCode} • ${factoryName}`;
+    }
+
+    return factoryCode || factoryName || "Unknown Factory";
+  };
+
+  const buildFactoryWiseShippingSummary = (rows) => {
+    /*
+      Factory wise implementation:
+      - Groups shipping pending data by factoryCode.
+      - Factory cards are summary only.
+      - Factory cards will NOT open the details modal/list.
+    */
+    const factoryMap = new Map();
+
+    normalizeArray(rows).forEach((item, index) => {
+      const pendingCount = Number(
+        item?.pendingShippingDateCount || item?.pendingShipping || 0
+      );
+
+      if (pendingCount <= 0) return;
+
+      const factoryCode =
+        String(item?.factoryCode || "Unknown").trim() || "Unknown";
+      const key = normalizeText(factoryCode) || `factory-${index}`;
+
+      const current = factoryMap.get(key) || {
+        ...item,
+        isFactoryWise: true,
+        factoryCode,
+        factoryName: item?.factoryName || "",
+        customerName: getFactoryDisplayName(item),
+        departmentName: "Factory Wise Summary",
+        departmentCode: factoryCode,
+        pendingShippingDateCount: 0,
+        pendingShipping: 0,
+        totalValue: 0,
+      };
+
+      current.pendingShippingDateCount += pendingCount;
+      current.pendingShipping += pendingCount;
+      current.totalValue += Number(item?.totalValue || 0);
+
+      factoryMap.set(key, current);
+    });
+
+    return Array.from(factoryMap.values()).sort(
+      (a, b) => (b?.pendingShipping || 0) - (a?.pendingShipping || 0)
+    );
+  };
+
   const fetchShippingSummary = async () => {
     setShippingLoading(true);
     setError("");
@@ -352,20 +501,25 @@ function ShippingPage() {
         "/api/Export/Get-Pending-Shipping-Date-Count"
       );
 
-      const pendingShippingDepartments = dataArray
-        .filter((item) => (item?.pendingShippingDateCount || 0) > 0)
-        .map((item, index) => ({
-          ...item,
-          departmentId: item?.departmentId || item?.recId || index + 1,
-          pendingShipping: item?.pendingShippingDateCount || 0,
-          customerName: item?.customerName || item?.departmentName || "Unknown",
-          departmentName: item?.departmentName || item?.departmentCode || "-",
-          departmentCode: item?.departmentCode || "",
-          totalValue: item?.totalValue || 0,
-        }))
-        .sort(
-          (a, b) => (b?.pendingShipping || 0) - (a?.pendingShipping || 0)
-        );
+      const dateAwareDataArray = await applyDateFilterToShippingSummaryRows(dataArray);
+
+      const pendingShippingDepartments =
+        viewMode === "factory"
+          ? buildFactoryWiseShippingSummary(dateAwareDataArray)
+          : dateAwareDataArray
+              .filter((item) => (item?.pendingShippingDateCount || item?.pendingShipping || 0) > 0)
+              .map((item, index) => ({
+                ...item,
+                departmentId: item?.departmentId || item?.recId || index + 1,
+                pendingShipping: item?.pendingShippingDateCount || item?.pendingShipping || 0,
+                customerName: item?.customerName || item?.departmentName || "Unknown",
+                departmentName: item?.departmentName || item?.departmentCode || "-",
+                departmentCode: item?.departmentCode || "",
+                totalValue: item?.totalValue || 0,
+              }))
+              .sort(
+                (a, b) => (b?.pendingShipping || 0) - (a?.pendingShipping || 0)
+              );
 
       setShippingSummaryData(pendingShippingDepartments);
       setShippingCurrentPage(1);
@@ -379,6 +533,51 @@ function ShippingPage() {
     }
   };
 
+  const formatDisplayDateToApiDate = (ddmmyyyy) => {
+    if (!ddmmyyyy) return "";
+    const [dd, mm, yyyy] = String(ddmmyyyy).split("-");
+    if (!dd || !mm || !yyyy) return "";
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const buildShippingListEndpoint = () => {
+    /*
+      FIX:
+      UI date state is DD-MM-YYYY, but the API normally expects YYYY-MM-DD.
+      This keeps the UI date format and sends API-safe dates.
+    */
+    const apiFromDate = formatDisplayDateToApiDate(fromDate);
+    const apiToDate = formatDisplayDateToApiDate(toDate);
+
+    const params = [];
+
+    if (apiFromDate) params.push(`fromDate=${encodeURIComponent(apiFromDate)}`);
+    if (apiToDate) params.push(`toDate=${encodeURIComponent(apiToDate)}`);
+
+    return params.length
+      ? `/api/Export/Get-By-Dept-Shipping-Date-List?${params.join("&")}`
+      : "/api/Export/Get-By-Dept-Shipping-Date-List";
+  };
+
+  const buildFactoryShippingListEndpoint = (factoryCode = "") => {
+    /*
+      Factory Wise detail endpoint:
+      /api/Export/Get-By-Factory-Shipping-Date-List?depName=ttl
+
+      depName is used by API as factoryCode.
+      ttl / TTL both work because modal data is matched case-insensitively.
+    */
+    const apiFromDate = formatDisplayDateToApiDate(fromDate);
+    const apiToDate = formatDisplayDateToApiDate(toDate);
+
+    const params = [`depName=${encodeURIComponent(factoryCode || "")}`];
+
+    if (apiFromDate) params.push(`fromDate=${encodeURIComponent(apiFromDate)}`);
+    if (apiToDate) params.push(`toDate=${encodeURIComponent(apiToDate)}`);
+
+    return `/api/Export/Get-By-Factory-Shipping-Date-List?${params.join("&")}`;
+  };
+
   const parseDateString = (dateStr) => {
     if (!dateStr) return null;
 
@@ -390,23 +589,33 @@ function ShippingPage() {
     return null;
   };
 
+  const getDateOnly = (date) => {
+    if (!date || Number.isNaN(date.getTime())) return null;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  };
+
   const filterBySelectedDates = (data) => {
     if (!Array.isArray(data)) return [];
 
-    const fromDateObj = fromDate ? parseDateString(fromDate) : null;
-    const toDateObj = toDate ? parseDateString(toDate) : null;
-
-    if (toDateObj) {
-      toDateObj.setHours(23, 59, 59, 999);
-    }
+    const fromDateObj = getDateOnly(fromDate ? parseDateString(fromDate) : null);
+    const toDateObj = getDateOnly(toDate ? parseDateString(toDate) : null);
 
     if (!fromDateObj && !toDateObj) return data;
 
     return data.filter((item) => {
-      if (!item?.exFacDate) return false;
+      const rawDate =
+        item?.shippingDate ||
+        item?.shipDate ||
+        item?.exFacDate ||
+        item?.exFactoryDate ||
+        item?.exfacDate ||
+        item?.createdDate;
 
-      const itemDate = new Date(item.exFacDate);
+      if (!rawDate) return false;
 
+      const itemDate = getDateOnly(new Date(rawDate));
+
+      if (!itemDate) return false;
       if (fromDateObj && itemDate < fromDateObj) return false;
       if (toDateObj && itemDate > toDateObj) return false;
 
@@ -424,7 +633,12 @@ function ShippingPage() {
         item?.packagingListNo?.toString().toLowerCase().includes(searchLower) ||
         item?.expDocumentNo?.toString().toLowerCase().includes(searchLower) ||
         item?.customerName?.toLowerCase().includes(searchLower) ||
-        item?.departmentName?.toLowerCase().includes(searchLower)
+        item?.departmentName?.toLowerCase().includes(searchLower) ||
+        item?.departmentCode?.toLowerCase().includes(searchLower) ||
+        item?.factoryCode?.toLowerCase().includes(searchLower) ||
+        item?.exFactoryName?.toLowerCase().includes(searchLower) ||
+        item?.workOrderNo?.toLowerCase().includes(searchLower) ||
+        item?.contractNo?.toLowerCase().includes(searchLower)
     );
   };
 
@@ -434,7 +648,7 @@ function ShippingPage() {
 
     try {
       const dataArray = await fetchRowsForDepartment(
-        "/api/Export/Get-By-Dept-Shipping-Date-List",
+        buildShippingListEndpoint(),
         {
           departmentCode: deptCode,
           departmentName: deptName,
@@ -457,7 +671,47 @@ function ShippingPage() {
     }
   };
 
+  const fetchModalFactoryShippingData = async (item) => {
+    const factoryCode = item?.factoryCode || item?.departmentCode || "";
+    const normalizedFactoryCode = normalizeText(factoryCode);
+
+    setModalLoading(true);
+    setModalSearchText("");
+    setModalCurrentPage(1);
+    setModalDepartmentName(
+      `${factoryCode || "Unknown Factory"} • Factory Shipping Pending Details`
+    );
+    setShowDetailsModal(true);
+
+    try {
+      const endpoint = buildFactoryShippingListEndpoint(factoryCode);
+      const url = `${API_BASE_URL}${endpoint}`;
+      const data = await fetchJsonWithAuth(url);
+
+      const dataArray = normalizeArray(data).filter(
+        (row) => normalizeText(row?.factoryCode) === normalizedFactoryCode
+      );
+
+      const dateFilteredData = filterBySelectedDates(removeDuplicateRows(dataArray));
+
+      setModalShippingData(dateFilteredData);
+      setModalFilteredData(dateFilteredData);
+    } catch (fetchError) {
+      console.error("Factory shipping modal fetch error:", fetchError);
+      setModalShippingData([]);
+      setModalFilteredData([]);
+      setModalCurrentPage(1);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   const handleCardClick = async (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      await fetchModalFactoryShippingData(item);
+      return;
+    }
+
     const displayTitle =
       item?.customerName && item?.departmentName
         ? `${item.customerName} • ${item.departmentName}`
@@ -515,7 +769,9 @@ function ShippingPage() {
       (item) =>
         item?.customerName?.toLowerCase().includes(key) ||
         item?.departmentName?.toLowerCase().includes(key) ||
-        item?.departmentCode?.toLowerCase().includes(key)
+        item?.departmentCode?.toLowerCase().includes(key) ||
+        item?.factoryCode?.toLowerCase().includes(key) ||
+        item?.factoryName?.toLowerCase().includes(key)
     );
   }, [shippingSafeData, searchText]);
 
@@ -574,11 +830,26 @@ function ShippingPage() {
 
   const cardIcons = ["🚢", "📦", "🏬", "🛳️", "📑", "🏭", "🚚", "📤"];
 
-  const getDisplayName = (item) =>
-    item?.customerName || item?.departmentName || "Unknown";
+  const getDisplayName = (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      return (
+        item?.factoryCode ||
+        item?.factoryName ||
+        item?.customerName ||
+        "Unknown Factory"
+      );
+    }
 
-  const getDepartmentSubText = (item) =>
-    item?.departmentName || item?.departmentCode || "-";
+    return item?.customerName || item?.departmentName || "Unknown";
+  };
+
+  const getDepartmentSubText = (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      return item?.factoryName || "Factory Wise Summary";
+    }
+
+    return item?.departmentName || item?.departmentCode || "-";
+  };
 
   const getPendingPercentage = (pending) => {
     if (!maxPendingShipping || maxPendingShipping <= 0) return 0;
@@ -628,8 +899,26 @@ function ShippingPage() {
         {/* Header */}
         <div className="rounded-2xl bg-[#101827] border border-white/10 p-4 shadow-2xl">
           
-          {/* Date Filters - Compact */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+          {/* Filters - Compact */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                View By
+              </label>
+              <select
+                value={viewMode}
+                onChange={(e) => {
+                  setViewMode(e.target.value);
+                  setSearchText("");
+                  setShippingCurrentPage(1);
+                }}
+                className="w-full rounded-xl bg-[#0b1220] border border-slate-700/60 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="dept">Department Wise</option>
+                <option value="factory">Factory Wise</option>
+              </select>
+            </div>
+
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
                 From Date
@@ -655,6 +944,15 @@ function ShippingPage() {
             </div>
 
             <div className="flex items-end gap-2">
+              <button
+                type="button"
+                onClick={fetchShippingSummary}
+                disabled={shippingLoading}
+                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-60 transition"
+              >
+                {shippingLoading ? "Filtering..." : "Apply"}
+              </button>
+
               {hasActiveFilters && (
                 <>
                   <button
@@ -662,7 +960,6 @@ function ShippingPage() {
                     onClick={() => {
                       setFromDate("");
                       setToDate("");
-                      setTimeout(fetchShippingSummary, 100);
                     }}
                     className="rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20 transition"
                   >
@@ -701,12 +998,16 @@ function ShippingPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-white/5">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-black text-white">📊 Shipping Summary</h2>
-              <span className="text-xs text-slate-400">Overview by active department</span>
+              <span className="text-xs text-slate-400">
+                {viewMode === "factory" ? "Overview by factory" : "Overview by active department"}
+              </span>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-blue-500/10 rounded-full px-3 py-1 border border-blue-500/20">
-                <span className="text-xs font-bold text-blue-300">Departments</span>
+                <span className="text-xs font-bold text-blue-300">
+                  {viewMode === "factory" ? "Factories" : "Departments"}
+                </span>
                 <span className="text-sm font-black text-white">{totalDepartmentCount}</span>
               </div>
               <div className="flex items-center gap-2 bg-emerald-500/10 rounded-full px-3 py-1 border border-emerald-500/20">
@@ -720,7 +1021,9 @@ function ShippingPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4">
             <div className="rounded-xl bg-[#132238] border border-blue-500/20 px-3 py-2">
               <div className="text-lg font-black text-white">{totalDepartmentCount}</div>
-              <div className="text-[10px] font-bold text-blue-300">Departments</div>
+              <div className="text-[10px] font-bold text-blue-300">
+                {viewMode === "factory" ? "Factories" : "Departments"}
+              </div>
             </div>
             <div className="rounded-xl bg-[#102a24] border border-emerald-500/20 px-3 py-2">
               <div className="text-lg font-black text-white">{totalPendingShipping}</div>
@@ -743,7 +1046,9 @@ function ShippingPage() {
           {/* Search & Cards */}
           <div className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-              <h3 className="text-sm font-black text-white">Pending by Department</h3>
+              <h3 className="text-sm font-black text-white">
+                {viewMode === "factory" ? "Pending by Factory" : "Pending by Department"}
+              </h3>
 
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
@@ -753,14 +1058,14 @@ function ShippingPage() {
                     setSearchText(e.target.value);
                     setShippingCurrentPage(1);
                   }}
-                  placeholder="Search department..."
+                  placeholder={viewMode === "factory" ? "Search factory..." : "Search department..."}
                   className="w-full sm:w-56 rounded-xl bg-[#1e293b] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             {shippingLoading ? (
-              <div className="py-8 text-center text-slate-400 text-sm">Loading pending shipping...</div>
+              <div className="py-8 text-center text-slate-400 text-sm">{hasActiveFilters ? "Applying date filter..." : "Loading pending shipping..."}</div>
             ) : shippingCurrentPageData.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -772,10 +1077,15 @@ function ShippingPage() {
 
                     return (
                       <button
-                        key={`${item?.departmentCode || item?.customerName || index}-${index}`}
+                        key={`${item?.factoryCode || item?.departmentCode || item?.customerName || index}-${index}`}
                         type="button"
                         onClick={() => handleCardClick(item)}
-                        className="relative overflow-hidden rounded-xl bg-[#161b26] border border-[#293244] p-3 text-left shadow-lg hover:border-blue-500/50 hover:bg-[#1a2232] transition-all group"
+                        className="relative overflow-hidden rounded-xl bg-[#161b26] border border-[#293244] p-3 text-left shadow-lg transition-all group hover:border-blue-500/50 hover:bg-[#1a2232]"
+                        title={
+                          viewMode === "factory"
+                            ? "Click to view factory shipping details"
+                            : "Click to view details"
+                        }
                         style={{ borderLeftWidth: 3, borderLeftColor: accentColor }}
                       >
                         <div
@@ -847,7 +1157,11 @@ function ShippingPage() {
             ) : (
               <div className="py-12 text-center">
                 <div className="text-3xl mb-2">✅</div>
-                <h3 className="text-sm font-bold text-slate-200">No pending shipping found</h3>
+                <h3 className="text-sm font-bold text-slate-200">
+                  {viewMode === "factory"
+                    ? "No pending factory summary found"
+                    : "No pending shipping found"}
+                </h3>
                 <p className="text-xs text-slate-500 mt-1">No pending shipping dates found</p>
               </div>
             )}
@@ -989,7 +1303,7 @@ function DetailsModal({
         <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20 text-base flex-shrink-0">
-              🚢
+              {title?.toLowerCase().includes("factory") ? "🏭" : "🚢"}
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-white">{title}</h3>
@@ -1028,7 +1342,7 @@ function DetailsModal({
               <input
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                placeholder="Search packing, export no, department..."
+                placeholder="Search packing, export no, department, factory, WO, contract..."
                 className="w-full rounded-xl bg-[#111827] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -1050,8 +1364,9 @@ function DetailsModal({
           </div>
         ) : data.length > 0 ? (
           <div className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0f172a]">
-            <div className="grid grid-cols-[1.6fr_0.9fr_0.8fr] bg-[#16213d] border-b border-white/10 text-[10px] font-bold uppercase text-slate-300">
-              <div className="px-3 py-2">Document</div>
+            <div className="grid grid-cols-[1.5fr_0.9fr_0.8fr_0.8fr] bg-[#16213d] border-b border-white/10 text-[10px] font-bold uppercase text-slate-300">
+              <div className="px-3 py-2">Document / Department</div>
+              <div className="px-3 py-2">Factory / Customer</div>
               <div className="px-3 py-2">Qty / Value</div>
               <div className="px-3 py-2">Ex-Factory</div>
             </div>
@@ -1060,7 +1375,7 @@ function DetailsModal({
               {data.map((item, index) => (
                 <div
                   key={`${item?.packagingListNo || index}-${index}`}
-                  className={`grid grid-cols-[1.6fr_0.9fr_0.8fr] border-b border-white/5 ${
+                  className={`grid grid-cols-[1.5fr_0.9fr_0.8fr_0.8fr] border-b border-white/5 ${
                     index % 2 === 0 ? "bg-[#0f172a]" : "bg-[#111c31]"
                   }`}
                 >
@@ -1070,17 +1385,23 @@ function DetailsModal({
                         {(currentPage - 1) * itemsPerPage + index + 1}
                       </span>
                       <span className="truncate text-xs font-bold text-white">
-                        {item.packagingListNo || "-"}
+                        {item.expDocumentNo || item.packagingListNo || "-"}
                       </span>
                     </div>
-                    <p className="truncate text-[10px] font-bold text-violet-300 mt-0.5">
-                      {item.expDocumentNo || "-"}
-                    </p>
                     <p className="truncate text-[10px] font-bold text-blue-300 mt-0.5">
-                      {item.customerName || "-"}
+                      {item.departmentName || item.departmentCode || "-"}
                     </p>
-                    <p className="truncate text-[9px] font-bold text-slate-400">
-                      {item.departmentName || "-"}
+                    {/* <p className="truncate text-[9px] font-bold text-slate-400">
+                      WO: {item.workOrderNo || "-"} | Contract: {item.contractNo || "-"}
+                    </p> */}
+                  </div>
+
+                  <div className="px-3 py-2 min-w-0">
+                    <p className="truncate text-xs font-bold text-amber-300">
+                      {item.factoryCode || item.exFactoryName || "-"}
+                    </p>
+                    <p className="truncate text-[10px] font-bold text-slate-300">
+                      {item.customerName || item.customerCode || "-"}
                     </p>
                   </div>
 
@@ -1099,6 +1420,9 @@ function DetailsModal({
                   <div className="px-3 py-2">
                     <p className="text-xs font-bold text-emerald-200">
                       {item.exFacDate ? item.exFacDate.split("T")[0] : "-"}
+                    </p>
+                    <p className="text-[9px] font-bold text-slate-400">
+                      Ship: {item.shippingDate ? item.shippingDate.split("T")[0] : "-"}
                     </p>
                   </div>
                 </div>

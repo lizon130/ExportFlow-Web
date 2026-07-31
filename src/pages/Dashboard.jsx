@@ -84,6 +84,43 @@ function Dashboard() {
     }, 0);
   };
 
+  const countDistinctPackagingListNo = (data) => {
+    /*
+      Export Docs Pending must show how many different packagingListNo values
+      exist in the pending API response.
+
+      Example:
+      10086506
+      10086507
+
+      Pending = 2, even when every row contains pendingExportCount: 96.
+    */
+    const uniquePackagingListNumbers = new Set();
+
+    normalizeArray(data).forEach((item) => {
+      const rawPackagingListNo =
+        item?.packagingListNo ??
+        item?.packingListNo ??
+        item?.packagingNo ??
+        item?.packingNo ??
+        null;
+
+      const packagingListNo = String(rawPackagingListNo ?? "").trim();
+      const normalizedPackagingListNo = packagingListNo.toLowerCase();
+
+      if (
+        packagingListNo &&
+        packagingListNo !== "0" &&
+        normalizedPackagingListNo !== "null" &&
+        normalizedPackagingListNo !== "undefined"
+      ) {
+        uniquePackagingListNumbers.add(normalizedPackagingListNo);
+      }
+    });
+
+    return uniquePackagingListNumbers.size;
+  };
+
   const sumTotalValue = (data) => {
     return normalizeArray(data).reduce(
       (sum, item) =>
@@ -281,10 +318,9 @@ function Dashboard() {
       "completedExpDocument",
     ]);
 
-    const pendingCount = sumCountFields(pendingRows, [
-      "pendingExportCount",
-      "pendingExpDocument",
-    ]);
+    // Do not sum pendingExportCount because the API repeats that total
+    // on every row. Count unique packagingListNo values instead.
+    const pendingCount = countDistinctPackagingListNo(pendingRows);
 
     const shipmentValue = sumTotalValue(completedRows);
 
@@ -539,7 +575,7 @@ function Dashboard() {
         completed: exportStats.completedExportCount,
         pending: exportStats.exportPendingCount,
         total: exportStats.totalExportCount,
-        note: `Packing List: ${exportStats.totalPackagingCount}`,
+        note: `Pending Packing Lists: ${exportStats.exportPendingCount}`,
         extra: `Export Value: ${formatCurrency(exportStats.shipmentValue)}`,
         color: "from-blue-500 to-cyan-400",
         bg: "bg-blue-500/10",
@@ -702,9 +738,10 @@ function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {cards.map((card) => {
             const percent = card.total
-              ? Math.min(100, Math.round((card.completed / card.total) * 100))
-              : 0;
-
+             ? (card.pending > 0
+      ? Math.min(99.9, (card.completed / card.total) * 100)
+      : 100)
+  : 0;
             return (
               <div
                 key={card.id}
@@ -721,7 +758,7 @@ function Dashboard() {
                     </div>
                   </div>
                   <span className={`rounded-full ${card.bg} ${card.text} px-1.5 py-0.5 text-[8px] font-bold border ${card.border}`}>
-                    P: {card.pending}
+                    Pending: {card.pending}
                   </span>
                 </div>
 
@@ -732,7 +769,7 @@ function Dashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-[8px] text-slate-400">Progress</p>
-                    <p className="text-xs font-bold text-white">{percent}%</p>
+                    <p className="text-xs font-bold text-white">{percent.toFixed(1)}%</p>
                   </div>
                 </div>
 

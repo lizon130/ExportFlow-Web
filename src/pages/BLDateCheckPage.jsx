@@ -11,6 +11,9 @@ function BLDateCheckPage() {
   const [blCurrentPage, setBlCurrentPage] = useState(1);
   const [blItemsPerPage, setBlItemsPerPage] = useState(20);
 
+  // dept = Department Wise, factory = Factory Wise
+  const [viewMode, setViewMode] = useState("dept");
+
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
@@ -40,6 +43,20 @@ function BLDateCheckPage() {
       setModalCurrentPage(totalPages);
     }
   }, [modalFilteredData, modalItemsPerPage, modalCurrentPage]);
+
+  useEffect(() => {
+    /*
+      FIX:
+      From Date / To Date must refresh the main summary cards too.
+      Without this, only the modal detail list used the selected dates.
+    */
+    const timer = setTimeout(() => {
+      fetchBlSummary();
+    }, 250);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDate, toDate, viewMode]);
 
   const normalizeArray = (data) => {
     if (Array.isArray(data)) return data;
@@ -451,11 +468,31 @@ function BLDateCheckPage() {
       item?.expDocumentNo ||
       item?.exportDocumentNo ||
       item?.packagingListNo ||
-      item?.recId ||
-      item?.id ||
       "";
 
-    return normalizeText(keyValue) || `row-${index}`;
+    if (keyValue) return normalizeText(keyValue);
+
+    return (
+      [
+        item?.departmentCode,
+        item?.departmentName,
+        item?.customerCode,
+        item?.customerName,
+        item?.factoryCode,
+        item?.exFacDate,
+        item?.styleCode,
+        item?.workOrderNo,
+        item?.contractNo,
+        item?.totalValue,
+        item?.noOfPcs,
+        item?.noOfCarton,
+        item?.recId,
+        item?.id,
+      ]
+        .map((value) => normalizeText(value))
+        .filter(Boolean)
+        .join("|") || `row-${index}`
+    );
   };
 
   const removeDuplicateBlDetails = (rows) => {
@@ -471,16 +508,177 @@ function BLDateCheckPage() {
     });
   };
 
+  const formatDisplayDateToApiDate = (ddmmyyyy) => {
+    if (!ddmmyyyy) return "";
+    const [dd, mm, yyyy] = String(ddmmyyyy).split("-");
+    if (!dd || !mm || !yyyy) return "";
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const getBlListUrl = (deptCode = "", selectedFromDate = "", selectedToDate = "") => {
+    /*
+      FIX:
+      UI stores dates as DD-MM-YYYY, but most .NET APIs expect YYYY-MM-DD.
+      So we send API-safe dates while keeping UI display unchanged.
+    */
+    const apiFromDate = formatDisplayDateToApiDate(selectedFromDate);
+    const apiToDate = formatDisplayDateToApiDate(selectedToDate);
+
     const params = [
       `depName=${encodeURIComponent(deptCode || "")}`,
-      `fromDate=${encodeURIComponent(selectedFromDate || "")}`,
-      `toDate=${encodeURIComponent(selectedToDate || "")}`,
+      `fromDate=${encodeURIComponent(apiFromDate || "")}`,
+      `toDate=${encodeURIComponent(apiToDate || "")}`,
     ];
 
     return `${API_BASE_URL}/api/Export/Get-By-Dept-Bl-Date-List?${params.join(
       "&"
     )}`;
+  };
+
+  const getFactoryBlListUrl = (
+    factoryCode = "",
+    selectedFromDate = "",
+    selectedToDate = ""
+  ) => {
+    /*
+      Factory Wise detail endpoint:
+      /api/Export/Get-By-Factory-Bl-Date-List?depName=ttl
+
+      depName is used by API as factoryCode.
+      ttl / TTL both must work, so later we match factoryCode case-insensitively.
+    */
+    const apiFromDate = formatDisplayDateToApiDate(selectedFromDate);
+    const apiToDate = formatDisplayDateToApiDate(selectedToDate);
+
+    const params = [
+      `depName=${encodeURIComponent(factoryCode || "")}`,
+      `fromDate=${encodeURIComponent(apiFromDate || "")}`,
+      `toDate=${encodeURIComponent(apiToDate || "")}`,
+    ];
+
+    return `${API_BASE_URL}/api/Export/Get-By-Factory-Bl-Date-List?${params.join(
+      "&"
+    )}`;
+  };
+
+  const getDateFilteredPendingCountForSummaryRow = async (summaryRow, access) => {
+    /*
+      FIX:
+      The summary/count API does not receive From Date / To Date.
+      So when date filter is active, calculate each card's pending count from
+      Get-By-Dept-Bl-Date-List with selected dates.
+    */
+    const deptQueries = getDepartmentQueryValuesFromRow(summaryRow);
+    const queryValues = deptQueries.length
+      ? deptQueries
+      : access.isRestricted
+      ? access.queryValues
+      : [""];
+
+    let mergedRows = [];
+
+    for (const queryValue of queryValues.length ? queryValues : [""]) {
+      const listData = await fetchJsonWithAuth(getBlListUrl(queryValue, fromDate, toDate));
+
+      const listArray = normalizeArray(listData).filter((row) =>
+        rowMatchesDepartmentAccess(row, access)
+      );
+
+      mergedRows = [...mergedRows, ...listArray];
+    }
+
+    const uniqueRows = removeDuplicateBlDetails(mergedRows);
+    const dateFilteredRows = filterBySelectedDates(uniqueRows, fromDate, toDate);
+
+    return {
+      pendingCount: dateFilteredRows.length,
+      totalValue: dateFilteredRows.reduce(
+        (sum, item) => sum + getNumber(item?.totalValue),
+        0
+      ),
+    };
+  };
+
+  const applyDateFilterToBlSummaryRows = async (rows, access) => {
+    if (!fromDate && !toDate) return rows;
+
+    const dateFilteredRows = [];
+
+    for (const row of rows) {
+      try {
+        const result = await getDateFilteredPendingCountForSummaryRow(row, access);
+
+        if (result.pendingCount > 0) {
+          dateFilteredRows.push({
+            ...row,
+            pendingBLDateCount: result.pendingCount,
+            pendingBL: result.pendingCount,
+            totalValue: result.totalValue,
+          });
+        }
+      } catch (error) {
+        console.error("Error applying B/L date filter to summary row:", error, row);
+      }
+    }
+
+    return dateFilteredRows;
+  };
+
+  const getFactoryDisplayName = (item) => {
+    const factoryCode = String(item?.factoryCode || "").trim();
+    const factoryName = String(item?.factoryName || "").trim();
+
+    if (
+      factoryCode &&
+      factoryName &&
+      normalizeText(factoryCode) !== normalizeText(factoryName)
+    ) {
+      return `${factoryCode} • ${factoryName}`;
+    }
+
+    return factoryCode || factoryName || "Unknown Factory";
+  };
+
+  const buildFactoryWiseBlSummary = (rows) => {
+    /*
+      Factory wise implementation:
+      - Groups B/L pending data by factoryCode.
+      - Factory cards are summary only.
+      - Factory cards will NOT open the details modal/list.
+    */
+    const factoryMap = new Map();
+
+    normalizeArray(rows).forEach((item, index) => {
+      const pendingCount = getNumber(item?.pendingBLDateCount || item?.pendingBL);
+      if (pendingCount <= 0) return;
+
+      const factoryCode =
+        String(item?.factoryCode || "Unknown").trim() || "Unknown";
+      const key = normalizeText(factoryCode) || `factory-${index}`;
+
+      const current = factoryMap.get(key) || {
+        ...item,
+        isFactoryWise: true,
+        factoryCode,
+        factoryName: item?.factoryName || "",
+        customerName: getFactoryDisplayName(item),
+        departmentName: "Factory Wise Summary",
+        departmentCode: factoryCode,
+        pendingBLDateCount: 0,
+        pendingBL: 0,
+        totalValue: 0,
+      };
+
+      current.pendingBLDateCount += pendingCount;
+      current.pendingBL += pendingCount;
+      current.totalValue += getNumber(item?.totalValue);
+
+      factoryMap.set(key, current);
+    });
+
+    return Array.from(factoryMap.values()).sort(
+      (a, b) => (b?.pendingBL || 0) - (a?.pendingBL || 0)
+    );
   };
 
   const fetchBlSummary = async () => {
@@ -514,18 +712,25 @@ function BLDateCheckPage() {
       }
 
       const dataArray = mergeBlSummaryRows(mergedRows);
+      const dateAwareDataArray = await applyDateFilterToBlSummaryRows(
+        dataArray,
+        access
+      );
 
-      const pendingBlDepartments = dataArray
-        .filter((item) => getNumber(item?.pendingBLDateCount || item?.pendingBL) > 0)
-        .map((item) => ({
-          ...item,
-          pendingBL: getNumber(item?.pendingBLDateCount || item?.pendingBL),
-          customerName: item?.customerName || item?.departmentName || "Unknown",
-          departmentName: item?.departmentName || item?.departmentCode || "-",
-          departmentCode: item?.departmentCode || "",
-          totalValue: getNumber(item?.totalValue),
-        }))
-        .sort((a, b) => (b?.pendingBL || 0) - (a?.pendingBL || 0));
+      const pendingBlDepartments =
+        viewMode === "factory"
+          ? buildFactoryWiseBlSummary(dateAwareDataArray)
+          : dateAwareDataArray
+              .filter((item) => getNumber(item?.pendingBLDateCount || item?.pendingBL) > 0)
+              .map((item) => ({
+                ...item,
+                pendingBL: getNumber(item?.pendingBLDateCount || item?.pendingBL),
+                customerName: item?.customerName || item?.departmentName || "Unknown",
+                departmentName: item?.departmentName || item?.departmentCode || "-",
+                departmentCode: item?.departmentCode || "",
+                totalValue: getNumber(item?.totalValue),
+              }))
+              .sort((a, b) => (b?.pendingBL || 0) - (a?.pendingBL || 0));
 
       setBlSummaryData(pendingBlDepartments);
       setFilteredBlData(pendingBlDepartments);
@@ -553,18 +758,30 @@ function BLDateCheckPage() {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   };
 
-  const filterBySelectedDates = (data) => {
+  const filterBySelectedDates = (
+    data,
+    selectedFromDate = fromDate,
+    selectedToDate = toDate
+  ) => {
     if (!Array.isArray(data)) return [];
 
-    const fromDateObj = getDateOnly(parseDateString(fromDate));
-    const toDateObj = getDateOnly(parseDateString(toDate));
+    const fromDateObj = getDateOnly(parseDateString(selectedFromDate));
+    const toDateObj = getDateOnly(parseDateString(selectedToDate));
 
     if (!fromDateObj && !toDateObj) return data;
 
     return data.filter((item) => {
-      if (!item?.exFacDate) return false;
+      const rawDate =
+        item?.exFacDate ||
+        item?.exFactoryDate ||
+        item?.exfacDate ||
+        item?.shipmentDate ||
+        item?.createdDate ||
+        item?.blDate;
 
-      const itemDate = getDateOnly(new Date(item.exFacDate));
+      if (!rawDate) return false;
+
+      const itemDate = getDateOnly(new Date(rawDate));
 
       if (!itemDate) return false;
       if (fromDateObj && itemDate < fromDateObj) return false;
@@ -585,6 +802,11 @@ function BLDateCheckPage() {
         item.packagingListNo?.toString().toLowerCase().includes(searchLower) ||
         item.customerName?.toLowerCase().includes(searchLower) ||
         item.departmentName?.toLowerCase().includes(searchLower) ||
+        item.departmentCode?.toLowerCase().includes(searchLower) ||
+        item.factoryCode?.toLowerCase().includes(searchLower) ||
+        item.exFactoryName?.toLowerCase().includes(searchLower) ||
+        item.workOrderNo?.toLowerCase().includes(searchLower) ||
+        item.contractNo?.toLowerCase().includes(searchLower) ||
         item.noOfPcs?.toString().toLowerCase().includes(searchLower) ||
         item.totalValue?.toString().toLowerCase().includes(searchLower)
     );
@@ -639,6 +861,48 @@ function BLDateCheckPage() {
       setModalFilteredData(dateFilteredArray);
     } catch (error) {
       console.error("Fetch B/L modal error:", error);
+      setModalExportData([]);
+      setModalFilteredData([]);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const fetchModalFactoryBlData = async (item) => {
+    const factoryCode = item?.factoryCode || item?.departmentCode || "";
+    const normalizedFactoryCode = normalizeText(factoryCode);
+
+    setModalLoading(true);
+    setModalSearchText("");
+    setModalCurrentPage(1);
+    setModalDepartmentName(
+      `${factoryCode || "Unknown Factory"} • Factory B/L Pending Details`
+    );
+    setShowDetailsModal(true);
+
+    try {
+      const { profile } = await fetchLoggedInUserProfile();
+      const access = buildDepartmentAccess(profile);
+
+      const data = await fetchJsonWithAuth(
+        getFactoryBlListUrl(factoryCode, fromDate, toDate)
+      );
+
+      const dataArray = normalizeArray(data).filter(
+        (row) => normalizeText(row?.factoryCode) === normalizedFactoryCode
+      );
+
+      const accessFilteredArray = dataArray.filter((row) =>
+        rowMatchesDepartmentAccess(row, access)
+      );
+
+      const uniqueRows = removeDuplicateBlDetails(accessFilteredArray);
+      const dateFilteredArray = filterBySelectedDates(uniqueRows);
+
+      setModalExportData(dateFilteredArray);
+      setModalFilteredData(dateFilteredArray);
+    } catch (error) {
+      console.error("Fetch Factory B/L modal error:", error);
       setModalExportData([]);
       setModalFilteredData([]);
     } finally {
@@ -726,11 +990,26 @@ function BLDateCheckPage() {
 
   const cardIcons = ["🚢", "📦", "🏬", "📄", "🛒", "🏭", "🧾", "⚓"];
 
-  const getDisplayName = (item) =>
-    item?.customerName || item?.departmentName || "Unknown";
+  const getDisplayName = (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      return (
+        item?.factoryCode ||
+        item?.factoryName ||
+        item?.customerName ||
+        "Unknown Factory"
+      );
+    }
 
-  const getDepartmentSubText = (item) =>
-    item?.departmentName || item?.departmentCode || "-";
+    return item?.customerName || item?.departmentName || "Unknown";
+  };
+
+  const getDepartmentSubText = (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      return item?.factoryName || "Factory Wise Summary";
+    }
+
+    return item?.departmentName || item?.departmentCode || "-";
+  };
 
   const getPendingPercentage = (pending) => {
     if (!maxPending || maxPending <= 0) return 0;
@@ -786,7 +1065,9 @@ function BLDateCheckPage() {
       (item) =>
         item.customerName?.toLowerCase().includes(searchLower) ||
         item.departmentCode?.toLowerCase().includes(searchLower) ||
-        item.departmentName?.toLowerCase().includes(searchLower)
+        item.departmentName?.toLowerCase().includes(searchLower) ||
+        item.factoryCode?.toLowerCase().includes(searchLower) ||
+        item.factoryName?.toLowerCase().includes(searchLower)
     );
 
     setFilteredBlData(filtered);
@@ -803,8 +1084,25 @@ function BLDateCheckPage() {
 
           </div>
 
-          {/* Date Filters - Compact */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+          {/* Filters - Compact */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                View By
+              </label>
+              <select
+                value={viewMode}
+                onChange={(e) => {
+                  setViewMode(e.target.value);
+                  setBlCurrentPage(1);
+                }}
+                className="w-full rounded-xl bg-[#0b1220] border border-slate-700/60 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="dept">Department Wise</option>
+                <option value="factory">Factory Wise</option>
+              </select>
+            </div>
+
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
                 From Date
@@ -830,6 +1128,15 @@ function BLDateCheckPage() {
             </div>
 
             <div className="flex items-end gap-2">
+              <button
+                type="button"
+                onClick={fetchBlSummary}
+                disabled={blLoading}
+                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-60 transition"
+              >
+                {blLoading ? "Filtering..." : "Apply"}
+              </button>
+
               {hasActiveFilters && (
                 <>
                   <button
@@ -837,7 +1144,6 @@ function BLDateCheckPage() {
                     onClick={() => {
                       setFromDate("");
                       setToDate("");
-                      setTimeout(fetchBlSummary, 100);
                     }}
                     className="rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20 transition"
                   >
@@ -876,12 +1182,16 @@ function BLDateCheckPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-white/5">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-black text-white">📊 B/L Pending Summary</h2>
-              <span className="text-xs text-slate-400">Overview by assigned department</span>
+              <span className="text-xs text-slate-400">
+                {viewMode === "factory" ? "Overview by factory" : "Overview by assigned department"}
+              </span>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-blue-500/10 rounded-full px-3 py-1 border border-blue-500/20">
-                <span className="text-xs font-bold text-blue-300">Departments</span>
+                <span className="text-xs font-bold text-blue-300">
+                  {viewMode === "factory" ? "Factories" : "Departments"}
+                </span>
                 <span className="text-sm font-black text-white">{totalDepartmentCount}</span>
               </div>
               <div className="flex items-center gap-2 bg-emerald-500/10 rounded-full px-3 py-1 border border-emerald-500/20">
@@ -895,7 +1205,9 @@ function BLDateCheckPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4">
             <div className="rounded-xl bg-[#132238] border border-blue-500/20 px-3 py-2">
               <div className="text-lg font-black text-white">{totalDepartmentCount}</div>
-              <div className="text-[10px] font-bold text-blue-300">Departments</div>
+              <div className="text-[10px] font-bold text-blue-300">
+                {viewMode === "factory" ? "Factories" : "Departments"}
+              </div>
             </div>
             <div className="rounded-xl bg-[#102a24] border border-emerald-500/20 px-3 py-2">
               <div className="text-lg font-black text-white">{totalPendingBl}</div>
@@ -918,20 +1230,22 @@ function BLDateCheckPage() {
           {/* Search & Cards */}
           <div className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-              <h3 className="text-sm font-black text-white">Pending by Department</h3>
+              <h3 className="text-sm font-black text-white">
+                {viewMode === "factory" ? "Pending by Factory" : "Pending by Department"}
+              </h3>
 
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
                 <input
                   onChange={(e) => handleBlSearch(e.target.value)}
-                  placeholder="Search department..."
+                  placeholder={viewMode === "factory" ? "Search factory..." : "Search department..."}
                   className="w-full sm:w-56 rounded-xl bg-[#1e293b] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             {blLoading ? (
-              <div className="py-8 text-center text-slate-400 text-sm">Loading B/L pending summary...</div>
+              <div className="py-8 text-center text-slate-400 text-sm">{hasActiveFilters ? "Applying date filter..." : "Loading B/L pending summary..."}</div>
             ) : blCurrentPageData.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -943,10 +1257,21 @@ function BLDateCheckPage() {
 
                     return (
                       <button
-                        key={`${item?.departmentCode || item?.departmentName || index}-${index}`}
+                        key={`${item?.factoryCode || item?.departmentCode || item?.departmentName || index}-${index}`}
                         type="button"
-                        onClick={() => fetchModalExportData(item)}
-                        className="relative overflow-hidden rounded-xl bg-[#161b26] border border-[#293244] p-3 text-left shadow-lg hover:border-blue-500/50 hover:bg-[#1a2232] transition-all group"
+                        onClick={() => {
+                          if (viewMode === "factory" || item?.isFactoryWise) {
+                            fetchModalFactoryBlData(item);
+                          } else {
+                            fetchModalExportData(item);
+                          }
+                        }}
+                        className="relative overflow-hidden rounded-xl bg-[#161b26] border border-[#293244] p-3 text-left shadow-lg transition-all group hover:border-blue-500/50 hover:bg-[#1a2232]"
+                        title={
+                          viewMode === "factory"
+                            ? "Click to view factory B/L details"
+                            : "Click to view details"
+                        }
                         style={{ borderLeftWidth: 3, borderLeftColor: accentColor }}
                       >
                         <div
@@ -1018,7 +1343,9 @@ function BLDateCheckPage() {
             ) : (
               <div className="py-12 text-center">
                 <div className="text-3xl mb-2">✅</div>
-                <h3 className="text-sm font-bold text-slate-200">No pending B/L found</h3>
+                <h3 className="text-sm font-bold text-slate-200">
+                  {viewMode === "factory" ? "No pending factory summary found" : "No pending B/L found"}
+                </h3>
                 <p className="text-xs text-slate-500 mt-1">All B/L dates are up to date</p>
               </div>
             )}
@@ -1160,7 +1487,7 @@ function DetailsModal({
         <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20 text-base flex-shrink-0">
-              🚢
+              {title?.toLowerCase().includes("factory") ? "🏭" : "🚢"}
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-white">{title}</h3>
@@ -1199,7 +1526,7 @@ function DetailsModal({
               <input
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                placeholder="Search export no, customer, department..."
+                placeholder="Search export no, customer, department, factory, WO, contract..."
                 className="w-full rounded-xl bg-[#111827] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -1221,8 +1548,9 @@ function DetailsModal({
           </div>
         ) : data.length > 0 ? (
           <div className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0f172a]">
-            <div className="grid grid-cols-[1.6fr_0.9fr_0.8fr] bg-[#16213d] border-b border-white/10 text-[10px] font-bold uppercase text-slate-300">
-              <div className="px-3 py-2">Document</div>
+            <div className="grid grid-cols-[1.5fr_0.9fr_0.8fr_0.8fr] bg-[#16213d] border-b border-white/10 text-[10px] font-bold uppercase text-slate-300">
+              <div className="px-3 py-2">Document / Department</div>
+              <div className="px-3 py-2">Factory / Customer</div>
               <div className="px-3 py-2">Value / Pcs</div>
               <div className="px-3 py-2">Ex-Factory</div>
             </div>
@@ -1231,7 +1559,7 @@ function DetailsModal({
               {data.map((item, index) => (
                 <div
                   key={`${item?.expDocumentNo || index}-${index}`}
-                  className={`grid grid-cols-[1.6fr_0.9fr_0.8fr] border-b border-white/5 ${
+                  className={`grid grid-cols-[1.5fr_0.9fr_0.8fr_0.8fr] border-b border-white/5 ${
                     index % 2 === 0 ? "bg-[#0f172a]" : "bg-[#111c31]"
                   }`}
                 >
@@ -1245,10 +1573,19 @@ function DetailsModal({
                       </span>
                     </div>
                     <p className="truncate text-[10px] font-bold text-blue-300 mt-0.5">
-                      {item.customerName || "-"}
+                      {item.departmentName || item.departmentCode || "-"}
                     </p>
-                    <p className="truncate text-[9px] font-bold text-slate-400">
-                      {item.departmentName || "-"}
+                    {/* <p className="truncate text-[9px] font-bold text-slate-400">
+                      WO: {item.workOrderNo || "-"} | Contract: {item.contractNo || "-"}
+                    </p> */}
+                  </div>
+
+                  <div className="px-3 py-2 min-w-0">
+                    <p className="truncate text-xs font-bold text-amber-300">
+                      {item.factoryCode || item.exFactoryName || "-"}
+                    </p>
+                    <p className="truncate text-[10px] font-bold text-slate-300">
+                      {item.customerName || item.customerCode || "-"}
                     </p>
                   </div>
 
@@ -1264,6 +1601,9 @@ function DetailsModal({
                   <div className="px-3 py-2">
                     <p className="text-xs font-bold text-emerald-200">
                       {item.exFacDate ? item.exFacDate.split("T")[0] : "-"}
+                    </p>
+                    <p className="text-[9px] font-bold text-slate-400">
+                      B/L: {item.blDate ? item.blDate.split("T")[0] : "-"}
                     </p>
                   </div>
                 </div>

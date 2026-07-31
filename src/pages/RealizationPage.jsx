@@ -5,25 +5,36 @@ const API_BASE_URL = "http://192.168.9.45:7000";
 function RealizationPage() {
   const [activeModal, setActiveModal] = useState(null);
   const [selectedRealizationGroup, setSelectedRealizationGroup] = useState(null);
+  const [exportViewMode, setExportViewMode] = useState("deptBuyer");
+  const [expectedViewMode, setExpectedViewMode] = useState("deptBuyer");
+  const [realizedViewMode, setRealizedViewMode] = useState("deptBuyer");
   const [upcomingViewMode, setUpcomingViewMode] = useState("deptBuyer");
   const [overdueViewMode, setOverdueViewMode] = useState("deptBuyer");
   const [realizationSearchText, setRealizationSearchText] = useState({
+    exportValue: "",
+    expected: "",
+    realized: "",
     upcoming: "",
     overdue: "",
   });
   const [groupDetailSearchText, setGroupDetailSearchText] = useState("");
   const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [exportDetailLoading, setExportDetailLoading] = useState(false);
+  const [exportDetailRows, setExportDetailRows] = useState([]);
   const [dashboardStats, setDashboardStats] = useState({
+    exportValueAmount: 0,
     totalAmount: 0,
     realizedAmount: 0,
     expectedAmount: 0,
     overdueAmount: 0,
 
+    exportDocumentCount: 0,
     expectedDocumentCount: 0,
     realizedDocumentCount: 0,
     upcomingDocumentCount: 0,
     overdueDocumentCount: 0,
 
+    exportRows: [],
     expectedRows: [],
     realizedRows: [],
     upcomingRows: [],
@@ -63,8 +74,11 @@ function RealizationPage() {
       item?.departmentName,
       item?.customerCode,
       item?.customerName,
+      item?.factoryCode,
+      item?.factoryName,
       monthValue,
       item?.totalValue,
+      item?.completedExportCount,
       item?.expectedMonthlyTotalDocumentsCount,
       item?.completedRealizationDateCount,
       item?.upcomingMonthlyTotalDocumentsCount,
@@ -364,6 +378,65 @@ function RealizationPage() {
     return removeDuplicateRows(mergedRows);
   };
 
+  const fetchExportValueDetailRows = async () => {
+    /*
+      FIX:
+      Export Value summary API returns one total row with departmentCode/null.
+      That row is only for the top card value.
+
+      The modal must use the detail API:
+      /api/Export/Get-By-Dept-Completed-Export-Docment-List
+
+      This is why Unknown Department was showing before.
+    */
+    const rows = await fetchRowsForAuthorizedDepartments(
+      "/api/Export/Get-By-Dept-Completed-Export-Docment-List"
+    );
+
+    return removeDuplicateRows(rows);
+  };
+
+  const fetchRowsForFactory = async (endpoint, factoryCode) => {
+    /*
+      Factory Wise detail endpoint:
+      Upcoming:
+      /api/Export/Get-By-Factory-Pending-Realization-Upcomming-Date-Count?depName=ttl
+
+      Overdue:
+      /api/Export/Get-By-Factory-Pending-Realization-OverDue-Date-Count?depName=tdl
+
+      depName is used by API as factoryCode.
+      ttl / TTL and tdl / TDL both work because we match factoryCode case-insensitively.
+    */
+    const queryText = String(factoryCode || "").trim();
+
+    if (!queryText) return [];
+
+    const url = `${API_BASE_URL}${endpoint}${
+      endpoint.includes("?") ? "&" : "?"
+    }depName=${encodeURIComponent(queryText)}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const rows = normalizeArray(await response.json());
+
+    return removeDuplicateRows(
+      rows.filter(
+        (item) => normalizeText(item?.factoryCode) === normalizeText(queryText)
+      )
+    );
+  };
+
   const getNumber = (value) => {
     const numberValue = Number(value || 0);
     return Number.isFinite(numberValue) ? numberValue : 0;
@@ -404,18 +477,23 @@ function RealizationPage() {
     setDashboardLoading(true);
 
     try {
-      const [expectedData, realizedData, upcomingData, overdueData] =
+      const [exportData, expectedData, realizedData, upcomingData, overdueData] =
         await Promise.all([
+          fetchJson("/api/Export/Get-Completed-Export-Document-Count"),
           fetchJson("/api/Export/Get-Pending-Realization-Expected-Date-Count"),
           fetchJson("/api/Export/Get-Completed-Realization-Date-Count"),
           fetchJson("/api/Export/Get-Pending-Realization-Upcomming-Date-Count"),
           fetchJson("/api/Export/Get-Pending-Realization-OverDue-Date-Count"),
         ]);
 
+      const exportRows = normalizeArray(exportData);
       const expectedRows = normalizeArray(expectedData);
       const realizedRows = normalizeArray(realizedData);
       const upcomingRows = normalizeArray(upcomingData);
       const overdueRows = normalizeArray(overdueData);
+
+      const exportTotal = sumValueFields(exportRows);
+      const exportDocumentCount = sumField(exportRows, "completedExportCount");
 
       const expectedTotal = sumValueFields(expectedRows);
       const expectedDocumentCount = sumField(
@@ -446,16 +524,19 @@ function RealizationPage() {
         : 0;
 
       setDashboardStats({
+        exportValueAmount: exportTotal,
         totalAmount: expectedTotal,
         realizedAmount: realizedTotal,
         expectedAmount: upcomingTotal,
         overdueAmount: overdueTotal,
 
+        exportDocumentCount,
         expectedDocumentCount,
         realizedDocumentCount,
         upcomingDocumentCount,
         overdueDocumentCount,
 
+        exportRows,
         expectedRows,
         realizedRows,
         upcomingRows,
@@ -468,16 +549,19 @@ function RealizationPage() {
     } catch (error) {
       console.error("Error fetching realization dashboard stats:", error);
       setDashboardStats({
+        exportValueAmount: 0,
         totalAmount: 0,
         realizedAmount: 0,
         expectedAmount: 0,
         overdueAmount: 0,
 
+        exportDocumentCount: 0,
         expectedDocumentCount: 0,
         realizedDocumentCount: 0,
         upcomingDocumentCount: 0,
         overdueDocumentCount: 0,
 
+        exportRows: [],
         expectedRows: [],
         realizedRows: [],
         upcomingRows: [],
@@ -572,6 +656,19 @@ function RealizationPage() {
   };
 
   const getRealizationConfig = (type) => {
+    if (type === "exportValue") {
+      return {
+        monthField: "exportMonth",
+        docsField: "completedExportCount",
+        pcsField: "totalExportNoOfPcsQnty",
+        emptyTitle: "No completed export value data found",
+        icon: "📦",
+        accent: "#06b6d4",
+        softBg: "rgba(6,182,212,0.14)",
+        badge: "Export",
+      };
+    }
+
     if (type === "expected") {
       return {
         monthField: "expectedMonth",
@@ -623,6 +720,95 @@ function RealizationPage() {
     };
   };
 
+  const getFactoryRealizationEndpoint = (type) => {
+    if (type === "exportValue") {
+      return "/api/Export/Get-By-Factory-Completed-Export-Docment-List";
+    }
+
+    if (type === "expected") {
+      return "/api/Export/Get-By-Factory-Pending-Realization-Expected-Date-Count";
+    }
+
+    if (type === "realized") {
+      return "/api/Export/Get-By-Factory-Completed-Realization-Date-Count";
+    }
+
+    if (type === "upcoming") {
+      return "/api/Export/Get-By-Factory-Pending-Realization-Upcomming-Date-Count";
+    }
+
+    if (type === "overdue") {
+      return "/api/Export/Get-By-Factory-Pending-Realization-OverDue-Date-Count";
+    }
+
+    return "";
+  };
+
+  const getDetailEndpointByType = (type) => {
+    if (type === "exportValue") {
+      return "/api/Export/Get-By-Dept-Completed-Export-Docment-List";
+    }
+
+    if (type === "expected") {
+      return "/api/Export/Get-Pending-Realization-Expected-Date-Count";
+    }
+
+    if (type === "realized") {
+      return "/api/Export/Get-Completed-Realization-Date-Count";
+    }
+
+    if (type === "upcoming") {
+      return "/api/Export/Get-Pending-Realization-Upcomming-Date-Count";
+    }
+
+    if (type === "overdue") {
+      return "/api/Export/Get-Pending-Realization-OverDue-Date-Count";
+    }
+
+    return "";
+  };
+
+  const shouldUseDirectFactoryEndpoint = (type) => {
+    /*
+      FIX:
+      These direct factory APIs are returning 404 in your backend:
+      - Export Value factory details
+      - Expected factory details
+      - Realized factory details
+
+      For these 3, use the working normal endpoint and filter by factoryCode.
+      Upcoming and Overdue factory endpoints are working, so keep direct API.
+    */
+    return type === "upcoming" || type === "overdue";
+  };
+
+  const fetchRowsForFactorySafe = async (type, factoryCode) => {
+    const queryText = String(factoryCode || "").trim();
+
+    if (!queryText) return [];
+
+    if (shouldUseDirectFactoryEndpoint(type)) {
+      return fetchRowsForFactory(getFactoryRealizationEndpoint(type), queryText);
+    }
+
+    const endpoint = getDetailEndpointByType(type);
+
+    if (!endpoint) return [];
+
+    const rows =
+      type === "exportValue"
+        ? exportDetailRows.length
+          ? exportDetailRows
+          : await fetchExportValueDetailRows()
+        : await fetchRowsForAuthorizedDepartments(endpoint);
+
+    return removeDuplicateRows(
+      normalizeArray(rows).filter(
+        (item) => normalizeText(item?.factoryCode) === normalizeText(queryText)
+      )
+    );
+  };
+
   const getRealizationGroupMeta = (viewMode) => {
     if (viewMode === "deptBuyer") {
       return {
@@ -651,6 +837,15 @@ function RealizationPage() {
       };
     }
 
+    if (viewMode === "factory") {
+      return {
+        label: "Factory",
+        badge: "Factory",
+        codeLabel: "Factory Code",
+        icon: "🏭",
+      };
+    }
+
     return {
       label: "Month",
       badge: "Month",
@@ -664,15 +859,34 @@ function RealizationPage() {
     const groupMap = {};
 
     normalizeArray(data).forEach((item) => {
-      const monthName = String(item?.[config.monthField] || "Unknown Month").trim();
+      const monthName = String(
+        item?.[config.monthField] ||
+          item?.expectedMonth ||
+          item?.realizationMonth ||
+          item?.upcomingMonth ||
+          item?.overDueMonth ||
+          item?.expDate?.split?.("T")?.[0]?.slice?.(0, 7) ||
+          item?.invoiceDate?.split?.("T")?.[0]?.slice?.(0, 7) ||
+          "Unknown Month"
+      ).trim();
       const departmentName = String(
-        item?.departmentName || item?.departmentCode || "Unknown Department"
+        item?.departmentName ||
+          item?.departmentCode ||
+          item?.deptName ||
+          item?.deptCode ||
+          "Unknown Department"
       ).trim();
       const buyerName = String(
-        item?.customerName || item?.customerCode || "Unknown Buyer"
+        item?.customerName ||
+          item?.customerCode ||
+          item?.buyerName ||
+          item?.buyerNameCode ||
+          "Unknown Buyer"
       ).trim();
       const departmentCode = String(item?.departmentCode || "").trim();
       const customerCode = String(item?.customerCode || "").trim();
+      const factoryCode = String(item?.factoryCode || "").trim();
+      const factoryName = String(item?.factoryName || item?.factoryCode || "").trim();
 
       const groupName =
         viewMode === "month"
@@ -683,7 +897,9 @@ function RealizationPage() {
             }`
           : viewMode === "department"
           ? departmentName
-          : buyerName;
+          : viewMode === "buyer"
+          ? buyerName
+          : factoryCode || factoryName || "Unknown Factory";
 
       const groupCode =
         viewMode === "month"
@@ -692,7 +908,9 @@ function RealizationPage() {
           ? `${departmentCode}|${customerCode}`
           : viewMode === "department"
           ? departmentCode
-          : customerCode;
+          : viewMode === "buyer"
+          ? customerCode
+          : factoryCode;
 
       const key = `${viewMode}-${groupCode || groupName}`.toLowerCase();
 
@@ -710,6 +928,8 @@ function RealizationPage() {
           departmentCode,
           buyerName,
           customerCode,
+          factoryCode,
+          factoryName,
           months: [],
           sourceRows: [],
           documents: 0,
@@ -719,7 +939,9 @@ function RealizationPage() {
         };
       }
 
-      groupMap[key].documents += getNumber(item?.[config.docsField]);
+      groupMap[key].documents +=
+        getNumber(item?.[config.docsField]) ||
+        (type === "exportValue" ? 1 : 0);
       groupMap[key].pcs += getNumber(item?.[config.pcsField]);
       groupMap[key].value += sumValueFields([item]);
       groupMap[key].sourceRows.push(item);
@@ -751,7 +973,16 @@ function RealizationPage() {
     const monthMap = {};
 
     normalizeArray(groupItem?.sourceRows).forEach((item) => {
-      const monthName = String(item?.[config.monthField] || "Unknown Month").trim();
+      const monthName = String(
+        item?.[config.monthField] ||
+          item?.expectedMonth ||
+          item?.realizationMonth ||
+          item?.upcomingMonth ||
+          item?.overDueMonth ||
+          item?.expDate?.split?.("T")?.[0]?.slice?.(0, 7) ||
+          item?.invoiceDate?.split?.("T")?.[0]?.slice?.(0, 7) ||
+          "Unknown Month"
+      ).trim();
       const monthKey = monthName.toLowerCase();
 
       if (!monthMap[monthKey]) {
@@ -763,7 +994,9 @@ function RealizationPage() {
         };
       }
 
-      monthMap[monthKey].documents += getNumber(item?.[config.docsField]);
+      monthMap[monthKey].documents +=
+        getNumber(item?.[config.docsField]) ||
+        (type === "exportValue" ? 1 : 0);
       monthMap[monthKey].pcs += getNumber(item?.[config.pcsField]);
       monthMap[monthKey].value += sumValueFields([item]);
     });
@@ -778,12 +1011,19 @@ function RealizationPage() {
     });
   };
 
-  const openRealizationGroupDetails = ({ item, type, viewMode, config, groupMeta }) => {
+  const openRealizationGroupDetails = async ({
+    item,
+    type,
+    viewMode,
+    config,
+    groupMeta,
+  }) => {
     if (viewMode === "month") return;
 
-    const detailRows = buildRealizationGroupMonthDetails(item, type);
-
     setGroupDetailSearchText("");
+
+    const detailViewMode = viewMode === "factory" ? "deptBuyer" : "month";
+
     setSelectedRealizationGroup({
       ...item,
       type,
@@ -792,8 +1032,85 @@ function RealizationPage() {
       codeLabel: groupMeta.codeLabel,
       accent: config.accent,
       softBg: config.softBg,
-      detailRows,
+      detailRows: [],
+      detailViewMode,
+      loading: true,
     });
+
+    try {
+      let detailSourceRows = [];
+
+      if (viewMode === "factory") {
+        const factoryCode = item?.factoryCode || item?.code || item?.label || "";
+        detailSourceRows = await fetchRowsForFactorySafe(type, factoryCode);
+      } else if (type === "exportValue") {
+        detailSourceRows = exportDetailRows.length
+          ? exportDetailRows
+          : await fetchExportValueDetailRows();
+      } else {
+        detailSourceRows = normalizeArray(item?.sourceRows);
+      }
+
+      let filteredRows = detailSourceRows;
+
+      if (viewMode === "deptBuyer") {
+        filteredRows = detailSourceRows.filter(
+          (row) =>
+            normalizeText(row?.departmentCode) === normalizeText(item?.departmentCode) &&
+            normalizeText(row?.customerCode) === normalizeText(item?.customerCode)
+        );
+      } else if (viewMode === "department") {
+        filteredRows = detailSourceRows.filter(
+          (row) => normalizeText(row?.departmentCode) === normalizeText(item?.departmentCode)
+        );
+      } else if (viewMode === "buyer") {
+        filteredRows = detailSourceRows.filter(
+          (row) => normalizeText(row?.customerCode) === normalizeText(item?.customerCode)
+        );
+      }
+
+      const detailRows =
+        viewMode === "factory"
+          ? buildGroupedRealizationRows(filteredRows, type, "deptBuyer")
+          : buildRealizationGroupMonthDetails(
+              {
+                ...item,
+                sourceRows: filteredRows,
+              },
+              type
+            );
+
+      setSelectedRealizationGroup((prev) => ({
+        ...(prev || item),
+        ...item,
+        type,
+        viewMode,
+        groupLabel: groupMeta.label,
+        codeLabel: groupMeta.codeLabel,
+        accent: config.accent,
+        softBg: config.softBg,
+        detailRows,
+        detailViewMode,
+        loading: false,
+      }));
+    } catch (error) {
+      console.error("Realization detail error:", error);
+
+      setSelectedRealizationGroup((prev) => ({
+        ...(prev || item),
+        ...item,
+        type,
+        viewMode,
+        groupLabel: groupMeta.label,
+        codeLabel: groupMeta.codeLabel,
+        accent: config.accent,
+        softBg: config.softBg,
+        detailRows: [],
+        detailViewMode,
+        loading: false,
+        error: error?.message || "Failed to load details",
+      }));
+    }
   };
 
   const getSearchableValue = (value) => String(value || "").trim().toLowerCase();
@@ -810,16 +1127,15 @@ function RealizationPage() {
       row?.departmentCode,
       row?.buyerName,
       row?.customerCode,
+      row?.factoryCode,
+      row?.factoryName,
       row?.monthsText,
       row?.month,
       row?.value,
     ].some((value) => getSearchableValue(value).includes(normalizedSearch));
   };
 
-  const getRealizationSearchText = (type) =>
-    type === "upcoming"
-      ? realizationSearchText.upcoming
-      : realizationSearchText.overdue;
+  const getRealizationSearchText = (type) => realizationSearchText[type] || "";
 
   const updateRealizationSearchText = (type, value) => {
     setRealizationSearchText((prev) => ({
@@ -902,15 +1218,34 @@ function RealizationPage() {
   };
 
   const renderRealizationViewFilter = (type) => {
-    const activeMode = type === "upcoming" ? upcomingViewMode : overdueViewMode;
+    const activeMode =
+      type === "exportValue"
+        ? exportViewMode
+        : type === "expected"
+        ? expectedViewMode
+        : type === "realized"
+        ? realizedViewMode
+        : type === "upcoming"
+        ? upcomingViewMode
+        : overdueViewMode;
+
     const setActiveMode =
-      type === "upcoming" ? setUpcomingViewMode : setOverdueViewMode;
+      type === "exportValue"
+        ? setExportViewMode
+        : type === "expected"
+        ? setExpectedViewMode
+        : type === "realized"
+        ? setRealizedViewMode
+        : type === "upcoming"
+        ? setUpcomingViewMode
+        : setOverdueViewMode;
 
     return (
-      <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl border border-white/10 bg-[#111827] p-1">
+      <div className="mb-3 grid grid-cols-3 gap-1.5 rounded-xl border border-white/10 bg-[#111827] p-1">
         {[
           { key: "deptBuyer", label: "Dept / Buyer" },
           { key: "month", label: "Month" },
+          { key: "factory", label: "Factory Wise" },
         ].map((option) => {
           const isActive = activeMode === option.key;
 
@@ -943,7 +1278,7 @@ function RealizationPage() {
           <input
             value={searchValue}
             onChange={(event) => updateRealizationSearchText(type, event.target.value)}
-            placeholder="Search month, department, buyer, code..."
+            placeholder="Search month, department, buyer, factory, code..."
             className="w-full rounded-lg bg-[#0f172a] border border-white/10 pl-7 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -962,7 +1297,16 @@ function RealizationPage() {
   };
 
   const renderSmartRealizationCards = (data, type) => {
-    const activeMode = type === "upcoming" ? upcomingViewMode : overdueViewMode;
+    const activeMode =
+      type === "exportValue"
+        ? exportViewMode
+        : type === "expected"
+        ? expectedViewMode
+        : type === "realized"
+        ? realizedViewMode
+        : type === "upcoming"
+        ? upcomingViewMode
+        : overdueViewMode;
     const rows = buildGroupedRealizationRows(data, type, activeMode);
     const config = getRealizationConfig(type);
     const groupMeta = getRealizationGroupMeta(activeMode);
@@ -1033,6 +1377,18 @@ function RealizationPage() {
                         {item.buyerName || "-"}
                       </h4>
                     </>
+                  ) : activeMode === "factory" ? (
+                    <>
+                      <p className="text-[8px] mt-1 uppercase font-black text-slate-500">Factory</p>
+                      <h4 className="text-xs font-bold text-white truncate">
+                        {item.factoryCode || item.label || "-"}
+                      </h4>
+                      {item.factoryName && item.factoryName !== item.factoryCode ? (
+                        <p className="mt-0.5 text-[9px] font-bold text-slate-400 truncate">
+                          {item.factoryName}
+                        </p>
+                      ) : null}
+                    </>
                   ) : (
                     <h4 className="mt-0.5 text-xs font-bold text-white truncate">
                       {item.label || "-"}
@@ -1096,6 +1452,30 @@ function RealizationPage() {
   };
 
   const renderModalContent = () => {
+    if (activeModal === "exportValue") {
+      return (
+        <>
+          <ModalSummaryCard
+            title="Export Value"
+            value={money(dashboardStats.exportValueAmount)}
+            subtitle={`${dashboardStats.exportDocumentCount.toLocaleString()} completed export documents`}
+            icon="📦"
+            color="#06b6d4"
+          />
+          {renderRealizationViewFilter("exportValue")}
+          {renderRealizationSearchBox("exportValue")}
+
+          {exportDetailLoading ? (
+            <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-6 text-center text-sm font-bold text-cyan-200">
+              Loading export value details...
+            </div>
+          ) : (
+            renderSmartRealizationCards(exportDetailRows, "exportValue")
+          )}
+        </>
+      );
+    }
+
     if (activeModal === "expectedTotal") {
       return (
         <>
@@ -1106,7 +1486,9 @@ function RealizationPage() {
             icon="💼"
             color="#3b82f6"
           />
-          {renderRealizationMonthRows(dashboardStats.expectedRows, "expected")}
+          {renderRealizationViewFilter("expected")}
+          {renderRealizationSearchBox("expected")}
+          {renderSmartRealizationCards(dashboardStats.expectedRows, "expected")}
         </>
       );
     }
@@ -1121,7 +1503,9 @@ function RealizationPage() {
             icon="📈"
             color="#10b981"
           />
-          {renderRealizedMonthRows(dashboardStats.realizedRows)}
+          {renderRealizationViewFilter("realized")}
+          {renderRealizationSearchBox("realized")}
+          {renderSmartRealizationCards(dashboardStats.realizedRows, "realized")}
         </>
       );
     }
@@ -1132,7 +1516,7 @@ function RealizationPage() {
           <ModalSummaryCard
             title="Upcoming Value"
             value={money(dashboardStats.expectedAmount)}
-            subtitle={`${dashboardStats.upcomingDocumentCount.toLocaleString()} upcoming documents`}
+            // subtitle={`${dashboardStats.upcomingDocumentCount.toLocaleString()} upcoming documents`}
             icon="🗓️"
             color="#f59e0b"
           />
@@ -1149,7 +1533,7 @@ function RealizationPage() {
           <ModalSummaryCard
             title="Overdue Value"
             value={money(dashboardStats.overdueAmount)}
-            subtitle={`${dashboardStats.overdueDocumentCount.toLocaleString()} overdue documents`}
+            // subtitle={`${dashboardStats.overdueDocumentCount.toLocaleString()} overdue documents`}
             icon="⏰"
             color="#ef4444"
           />
@@ -1172,7 +1556,32 @@ function RealizationPage() {
     0
   );
 
+  const groupDetailTotalDocuments = groupDetailRows.reduce(
+    (sum, item) => sum + getNumber(item?.documents),
+    0
+  );
+
+  const groupDetailTotalPcs = groupDetailRows.reduce(
+    (sum, item) => sum + getNumber(item?.pcs),
+    0
+  );
+
+  const isFactoryDetailModal =
+    selectedRealizationGroup?.viewMode === "factory" ||
+    selectedRealizationGroup?.detailViewMode === "deptBuyer";
+
   const chartItems = [
+    {
+      key: "exportValue",
+      label: "Export Value",
+      value: dashboardStats.exportValueAmount,
+      docs: dashboardStats.exportDocumentCount,
+      icon: "📦",
+      color: "#06b6d4",
+      bg: "bg-cyan-500/10",
+      border: "border-cyan-400/40",
+      text: "text-cyan-300",
+    },
     {
       key: "expectedTotal",
       label: "Expected",
@@ -1237,8 +1646,22 @@ function RealizationPage() {
     ? Math.round((dashboardStats.overdueAmount / pendingAmount) * 100)
     : 0;
 
-  const openCardModal = (key) => {
+  const openCardModal = async (key) => {
     setActiveModal(key);
+
+    if (key === "exportValue") {
+      setExportDetailLoading(true);
+
+      try {
+        const rows = await fetchExportValueDetailRows();
+        setExportDetailRows(rows);
+      } catch (error) {
+        console.error("Export value detail loading error:", error);
+        setExportDetailRows([]);
+      } finally {
+        setExportDetailLoading(false);
+      }
+    }
   };
 
   return (
@@ -1246,7 +1669,7 @@ function RealizationPage() {
       <div className="max-w-7xl mx-auto space-y-4">
 
         {/* Main one-row web KPI cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2.5">
           {chartItems.map((item) => {
             const percentage = Math.min(
               100,
@@ -1311,7 +1734,7 @@ function RealizationPage() {
 
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1">
                 <span className="text-[10px] font-bold text-emerald-300">
-                  Realized: {dashboardStats.realizedPercent}%
+                  Realized: {dashboardStats.realizedPercent}% 
                 </span>
               </div>
             </div>
@@ -1486,9 +1909,9 @@ function RealizationPage() {
                   <h3 className="mt-1 text-base font-bold text-amber-300">
                     {money(dashboardStats.expectedAmount)}
                   </h3>
-                  <p className="mt-1 text-[9px] text-slate-400">
+                  {/* <p className="mt-1 text-[9px] text-slate-400">
                     {dashboardStats.upcomingDocumentCount.toLocaleString()} documents
-                  </p>
+                  </p> */}
                 </div>
                 <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center text-sm">
                   🗓️
@@ -1509,9 +1932,9 @@ function RealizationPage() {
                   <h3 className="mt-1 text-base font-bold text-red-300">
                     {money(dashboardStats.overdueAmount)}
                   </h3>
-                  <p className="mt-1 text-[9px] text-slate-400">
+                  {/* <p className="mt-1 text-[9px] text-slate-400">
                     {dashboardStats.overdueDocumentCount.toLocaleString()} documents
-                  </p>
+                  </p> */}
                 </div>
                 <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center text-sm">
                   ⏰
@@ -1534,7 +1957,9 @@ function RealizationPage() {
             <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
               <div>
                 <h3 className="text-sm font-bold text-white">
-                  {activeModal === "expectedTotal"
+                  {activeModal === "exportValue"
+                    ? "Export Value Details"
+                    : activeModal === "expectedTotal"
                     ? "Expected Amount Details"
                     : activeModal === "overdue"
                     ? "Overdue Details"
@@ -1575,7 +2000,9 @@ function RealizationPage() {
                   {selectedRealizationGroup.label || "-"}
                 </h3>
                 <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-                  {selectedRealizationGroup.groupLabel} wise month details
+                  {isFactoryDetailModal
+                    ? "Factory wise Dept/Buyer details"
+                    : `${selectedRealizationGroup.groupLabel} wise month details`}
                 </p>
 
                 {selectedRealizationGroup.code ? (
@@ -1595,13 +2022,33 @@ function RealizationPage() {
             </div>
 
             <div className="p-3">
-              <div className="rounded-lg bg-[#111827] border border-white/10 p-3 mb-3">
-                <p className="text-lg font-bold text-white">
-                  {money(groupDetailTotalValue)}
-                </p>
-                <p className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">
-                  Total Value
-                </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+                <div className="rounded-lg bg-[#111827] border border-white/10 p-3">
+                  <p className="text-lg font-bold text-white">
+                    {money(groupDetailTotalValue)}
+                  </p>
+                  <p className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">
+                    Total Value
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-[#111827] border border-white/10 p-3">
+                  <p className="text-lg font-bold text-blue-300">
+                    {groupDetailTotalDocuments.toLocaleString()}
+                  </p>
+                  <p className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">
+                    Documents
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-[#111827] border border-white/10 p-3">
+                  <p className="text-lg font-bold text-emerald-300">
+                    {groupDetailTotalPcs.toLocaleString()}
+                  </p>
+                  <p className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">
+                    PCS
+                  </p>
+                </div>
               </div>
 
               <div className="mb-3 flex flex-col sm:flex-row gap-2">
@@ -1610,7 +2057,11 @@ function RealizationPage() {
                   <input
                     value={groupDetailSearchText}
                     onChange={(e) => setGroupDetailSearchText(e.target.value)}
-                    placeholder="Search month or value..."
+                    placeholder={
+                      isFactoryDetailModal
+                        ? "Search department, buyer, month, code or value..."
+                        : "Search month or value..."
+                    }
                     className="w-full rounded-lg bg-[#111827] border border-white/10 pl-7 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -1630,27 +2081,86 @@ function RealizationPage() {
                 <table className="min-w-full">
                   <thead className="sticky top-0 bg-[#16213d]">
                     <tr>
-                      <Th>Month</Th>
-                      <Th>Value</Th>
+                      {isFactoryDetailModal ? (
+                        <>
+                          <Th>Department / Buyer</Th>
+                          <Th>Month</Th>
+                          <Th>Documents</Th>
+                          <Th>PCS</Th>
+                          <Th>Value</Th>
+                        </>
+                      ) : (
+                        <>
+                          <Th>Month</Th>
+                          <Th>Value</Th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredGroupDetailRows.length ? (
+                    {selectedRealizationGroup?.loading ? (
+                      <tr>
+                        <td
+                          colSpan={isFactoryDetailModal ? 5 : 2}
+                          className="px-3 py-8 text-center text-sm text-slate-400"
+                        >
+                          Loading factory details...
+                        </td>
+                      </tr>
+                    ) : selectedRealizationGroup?.error ? (
+                      <tr>
+                        <td
+                          colSpan={isFactoryDetailModal ? 5 : 2}
+                          className="px-3 py-8 text-center text-sm text-red-300"
+                        >
+                          {selectedRealizationGroup.error}
+                        </td>
+                      </tr>
+                    ) : filteredGroupDetailRows.length ? (
                       filteredGroupDetailRows.map((item, index) => (
                         <tr
-                          key={`${item?.month || "month"}-${index}`}
+                          key={`${
+                            item?.code || item?.label || item?.month || "detail"
+                          }-${index}`}
                           className={`border-b border-white/5 ${
                             index % 2 === 0 ? "bg-[#0f172a]" : "bg-[#111c31]"
                           }`}
                         >
-                          <Td strong>{item.month || "-"}</Td>
-                          <Td value>{compactMoney(getNumber(item.value))}</Td>
+                          {isFactoryDetailModal ? (
+                            <>
+                              <Td strong>
+                                <div>
+                                  <p>{item.departmentName || "-"}</p>
+                                  <p className="mt-0.5 text-[10px] font-bold text-blue-300">
+                                    {item.buyerName || "-"}
+                                  </p>
+                                  <p className="mt-0.5 text-[9px] font-bold text-slate-500">
+                                    {item.code || "-"}
+                                  </p>
+                                </div>
+                              </Td>
+                              <Td>{item.monthsText || "-"}</Td>
+                              <Td>{getNumber(item.documents).toLocaleString()}</Td>
+                              <Td>{getNumber(item.pcs).toLocaleString()}</Td>
+                              <Td value>{compactMoney(getNumber(item.value))}</Td>
+                            </>
+                          ) : (
+                            <>
+                              <Td strong>{item.month || "-"}</Td>
+                              <Td value>{compactMoney(getNumber(item.value))}</Td>
+                            </>
+                          )}
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="2" className="px-3 py-8 text-center text-sm text-slate-400">
-                          No matching month found
+                        <td
+                          colSpan={isFactoryDetailModal ? 5 : 2}
+                          className="px-3 py-8 text-center text-sm text-slate-400"
+                        >
+                          {isFactoryDetailModal
+                            ? "No factory Dept/Buyer details found"
+                            : "No matching month found"}
                         </td>
                       </tr>
                     )}

@@ -13,6 +13,9 @@ function ExportDocsPage() {
   const [buyerCurrentPage, setBuyerCurrentPage] = useState(1);
   const [buyerItemsPerPage, setBuyerItemsPerPage] = useState(20);
 
+  // dept = Department Wise, factory = Factory Wise
+  const [viewMode, setViewMode] = useState("dept");
+
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
@@ -439,6 +442,46 @@ function ExportDocsPage() {
     return mergedRows;
   };
 
+  const fetchRowsFromEndpointByFactory = async (
+    endpoint,
+    factoryCode,
+    access = departmentAccess
+  ) => {
+    const queryText = String(factoryCode || "").trim();
+
+    if (!queryText) return [];
+
+    const url = `${API_BASE_URL}${endpoint}?depName=${encodeURIComponent(
+      queryText
+    )}`;
+
+    try {
+      const data = await fetchJsonWithAuth(url);
+
+      const rows = normalizeArray(data).map((item) => ({
+        ...item,
+        __queryFactoryCode: queryText,
+      }));
+
+      /*
+        Factory endpoint uses depName as factoryCode.
+        Match case-insensitively so ttl, TTL, Ttl all return TTL rows.
+      */
+      const matchedRows = rows.filter(
+        (item) => normalizeText(item?.factoryCode) === normalizeText(queryText)
+      );
+
+      if (access?.isRestricted && access?.keyValues?.length) {
+        return matchedRows.filter((row) => isRowAllowedForAccess(row, access));
+      }
+
+      return matchedRows;
+    } catch (error) {
+      console.error("Factory API failed:", url, error);
+      return [];
+    }
+  };
+
   const getUniqueExportDocumentKey = (item) => {
     const keyValue =
       item?.expDocumentNo ||
@@ -446,11 +489,28 @@ function ExportDocsPage() {
       item?.exportDocumentNo ||
       item?.packagingListNo ||
       item?.packingListNo ||
-      item?.recId ||
-      item?.id ||
       "";
 
-    return normalizeText(keyValue);
+    if (keyValue) return normalizeText(keyValue);
+
+    return [
+      item?.departmentCode,
+      item?.departmentName,
+      item?.customerCode,
+      item?.customerName,
+      item?.factoryCode,
+      item?.exFacDate,
+      item?.styleCode,
+      item?.workOrderNo,
+      item?.contractNo,
+      item?.totalValue,
+      item?.noOfPcs,
+      item?.recId,
+      item?.id,
+    ]
+      .map((value) => normalizeText(value))
+      .filter(Boolean)
+      .join("|");
   };
 
   const removeDuplicateExportDocuments = (data) => {
@@ -489,9 +549,47 @@ function ExportDocsPage() {
       deptName
     );
 
-    return removeDuplicateExportDocuments(
-      rows.filter((item) => isSameDepartment(item, deptCode, deptName))
+    const normalizedDeptCode = normalizeText(deptCode);
+    const normalizedDeptName = normalizeText(deptName);
+
+    const exactDepartmentRows = rows.filter((item) => {
+      const rowDeptCode = normalizeText(item?.departmentCode);
+      const rowDeptName = normalizeText(item?.departmentName);
+
+      if (normalizedDeptCode && rowDeptCode) {
+        return rowDeptCode === normalizedDeptCode;
+      }
+
+      if (normalizedDeptName && rowDeptName) {
+        return rowDeptName === normalizedDeptName;
+      }
+
+      return isSameDepartment(item, deptCode, deptName);
+    });
+
+    return removeDuplicateExportDocuments(exactDepartmentRows);
+  };
+
+  const fetchFactoryExportDocuments = async (
+    factoryCode,
+    accessOverride = departmentAccess
+  ) => {
+    /*
+      FIX:
+      For factory card click, use the updated factory endpoint directly:
+      /api/Export/Get-By-Factory-Export-Docment-List?depName=ttl
+
+      Then match factoryCode case-insensitively.
+      This fixes TTL card detail count mismatch. If API returns 11 TTL rows,
+      modal will show 11 rows before any selected date filtering.
+    */
+    const rows = await fetchRowsFromEndpointByFactory(
+      "/api/Export/Get-By-Factory-Export-Docment-List",
+      factoryCode,
+      accessOverride
     );
+
+    return removeDuplicateExportDocuments(rows);
   };
 
   const parseDateString = (dateStr) => {
@@ -546,7 +644,12 @@ function ExportDocsPage() {
         item.customerName?.toLowerCase().includes(searchLower) ||
         item.styleCode?.toLowerCase().includes(searchLower) ||
         item.expDocumentNo?.toLowerCase().includes(searchLower) ||
-        item.departmentName?.toLowerCase().includes(searchLower)
+        item.departmentName?.toLowerCase().includes(searchLower) ||
+        item.departmentCode?.toLowerCase().includes(searchLower) ||
+        item.factoryCode?.toLowerCase().includes(searchLower) ||
+        item.exFactoryName?.toLowerCase().includes(searchLower) ||
+        item.workOrderNo?.toLowerCase().includes(searchLower) ||
+        item.contractNo?.toLowerCase().includes(searchLower)
     );
   };
 
@@ -564,34 +667,168 @@ function ExportDocsPage() {
     setFilteredBuyerData((prev) => updater(prev));
   };
 
+  const getFactoryDisplayName = (item) => {
+    const factoryCode = String(item?.factoryCode || "").trim();
+    const factoryName = String(item?.factoryName || "").trim();
+
+    if (
+      factoryCode &&
+      factoryName &&
+      normalizeText(factoryCode) !== normalizeText(factoryName)
+    ) {
+      return `${factoryCode} • ${factoryName}`;
+    }
+
+    return factoryCode || factoryName || "Unknown Factory";
+  };
+
+  const buildPendingFactoriesFromActualDocs = async (
+    dataArray,
+    accessOverride = departmentAccess
+  ) => {
+    /*
+      Factory wise implementation:
+      - Groups pending export document data by factoryCode.
+      - Factory cards are summary only.
+      - Factory cards will NOT open the details modal/list.
+    */
+    const pendingDepartments = await buildPendingDepartmentsFromActualDocs(
+      dataArray,
+      accessOverride
+    );
+
+    const factoryMap = new Map();
+
+    pendingDepartments.forEach((item, index) => {
+      const factoryCode =
+        String(item?.factoryCode || "Unknown").trim() || "Unknown";
+      const key = normalizeText(factoryCode) || `factory-${index}`;
+
+      const current = factoryMap.get(key) || {
+        ...item,
+        isFactoryWise: true,
+        factoryCode,
+        factoryName: item?.factoryName || "",
+        customerName: getFactoryDisplayName(item),
+        departmentName: "Factory Wise Summary",
+        departmentCode: factoryCode,
+        pendingExpDocument: 0,
+        pendingExportCount: 0,
+        totalValue: 0,
+      };
+
+      current.pendingExpDocument += Number(item?.pendingExpDocument || 0);
+      current.pendingExportCount += Number(
+        item?.pendingExportCount || item?.pendingExpDocument || 0
+      );
+      current.totalValue += Number(
+        item?.totalValue || item?.totalExportValue || item?.pendingValue || 0
+      );
+
+      factoryMap.set(key, current);
+    });
+
+    return Array.from(factoryMap.values())
+      .filter((item) => (item?.pendingExpDocument || 0) > 0)
+      .sort(
+        (a, b) =>
+          (b?.pendingExpDocument || 0) - (a?.pendingExpDocument || 0)
+      );
+  };
+
   const buildPendingDepartmentsFromActualDocs = async (
     dataArray,
     accessOverride = departmentAccess
   ) => {
-    const baseDepartments = normalizeArray(dataArray)
-      .filter((item) => (item?.pendingExportCount || item?.pendingExpDocument || 0) > 0)
+    /*
+      FIX:
+      The pending summary API may return multiple rows for the same department
+      because each packagingListNo is returned separately.
+
+      Previously every row became a card, so departments such as HnM Adult
+      appeared many times.
+
+      Now rows are grouped by department first. Then only one card is created
+      for each unique department.
+    */
+    const departmentMap = new Map();
+
+    normalizeArray(dataArray)
+      .filter(
+        (item) =>
+          (item?.pendingExportCount || item?.pendingExpDocument || 0) > 0
+      )
       .filter((item) => isRowAllowedForAccess(item, accessOverride))
-      .map((item, index) => ({
-        ...item,
-        departmentId:
-          item?.departmentId ||
-          item?.recId ||
-          item?.departmentCode ||
-          item?.__queryDepName ||
-          index + 1,
-        pendingExpDocument:
-          item?.pendingExpDocument || item?.pendingExportCount || 0,
-        apiPendingExpDocument:
-          item?.pendingExportCount || item?.pendingExpDocument || 0,
-        customerName:
+      .forEach((item, index) => {
+        const departmentCode = String(
+          item?.departmentCode || item?.__queryDepName || ""
+        ).trim();
+
+        const departmentName = String(
+          item?.departmentName || departmentCode || item?.__queryDepName || "-"
+        ).trim();
+
+        const customerCode = String(item?.customerCode || "").trim();
+        const customerName = String(
           item?.customerName ||
-          item?.buyerName ||
-          item?.departmentName ||
-          "Unknown",
-        departmentName:
-          item?.departmentName || item?.departmentCode || item?.__queryDepName || "-",
-        departmentCode: item?.departmentCode || item?.__queryDepName || "",
-      }));
+            item?.buyerName ||
+            item?.departmentName ||
+            "Unknown"
+        ).trim();
+
+        /*
+          Use department code as the main key.
+          Include customer code only as a fallback safeguard.
+        */
+        const departmentKey =
+          normalizeText(departmentCode) ||
+          normalizeText(departmentName) ||
+          normalizeText(customerCode) ||
+          `department-${index}`;
+
+        const existing = departmentMap.get(departmentKey);
+
+        if (!existing) {
+          departmentMap.set(departmentKey, {
+            ...item,
+            departmentId:
+              item?.departmentId ||
+              item?.recId ||
+              departmentCode ||
+              item?.__queryDepName ||
+              index + 1,
+            departmentCode,
+            departmentName,
+            customerCode,
+            customerName,
+            pendingExpDocument: 0,
+            pendingExportCount: 0,
+            apiPendingExpDocument: 0,
+            packagingListNos: [],
+          });
+        }
+
+        const current = departmentMap.get(departmentKey);
+
+        const packagingListNo = String(
+          item?.packagingListNo ?? item?.packingListNo ?? ""
+        ).trim();
+
+        if (
+          packagingListNo &&
+          packagingListNo !== "0" &&
+          !current.packagingListNos.includes(packagingListNo)
+        ) {
+          current.packagingListNos.push(packagingListNo);
+        }
+
+        current.apiPendingExpDocument = Math.max(
+          Number(current.apiPendingExpDocument || 0),
+          Number(item?.pendingExportCount || item?.pendingExpDocument || 0)
+        );
+      });
+
+    const baseDepartments = Array.from(departmentMap.values());
 
     const departmentsWithActualCount = await Promise.all(
       baseDepartments.map(async (department) => {
@@ -602,24 +839,63 @@ function ExportDocsPage() {
             accessOverride
           );
 
-          const dateFilteredDocuments = filterBySelectedDates(departmentDocuments);
-          const actualPendingCount = dateFilteredDocuments.length;
+          const dateFilteredDocuments = filterBySelectedDates(
+            departmentDocuments
+          );
+
+          /*
+            Count unique packagingListNo values.
+            This prevents duplicate API rows from increasing the card count.
+          */
+          const uniquePackagingListNumbers = new Set();
+
+          dateFilteredDocuments.forEach((document) => {
+            const packagingListNo = String(
+              document?.packagingListNo ?? document?.packingListNo ?? ""
+            ).trim();
+
+            if (packagingListNo && packagingListNo !== "0") {
+              uniquePackagingListNumbers.add(normalizeText(packagingListNo));
+            }
+          });
+
+          const actualPendingCount =
+            uniquePackagingListNumbers.size ||
+            removeDuplicateExportDocuments(dateFilteredDocuments).length;
 
           return {
             ...department,
             pendingExpDocument: actualPendingCount,
             pendingExportCount: actualPendingCount,
+            packagingListNos: Array.from(uniquePackagingListNumbers),
           };
         } catch (error) {
-          console.error("Error syncing pending count:", error);
-          return department;
+          console.error(
+            "Error syncing pending count for department:",
+            department.departmentCode,
+            error
+          );
+
+          const fallbackCount =
+            department.packagingListNos?.length ||
+            department.apiPendingExpDocument ||
+            0;
+
+          return {
+            ...department,
+            pendingExpDocument: fallbackCount,
+            pendingExportCount: fallbackCount,
+          };
         }
       })
     );
 
     return departmentsWithActualCount
       .filter((item) => (item?.pendingExpDocument || 0) > 0)
-      .sort((a, b) => (b?.pendingExpDocument || 0) - (a?.pendingExpDocument || 0));
+      .sort(
+        (a, b) =>
+          (b?.pendingExpDocument || 0) - (a?.pendingExpDocument || 0)
+      );
   };
 
   const fetchDepartmentsAndSummary = async (accessOverride = departmentAccess) => {
@@ -636,13 +912,13 @@ function ExportDocsPage() {
         activeAccess
       );
 
-      const pendingDepartments = await buildPendingDepartmentsFromActualDocs(
-        dataArray,
-        activeAccess
-      );
+      const pendingData =
+        viewMode === "factory"
+          ? await buildPendingFactoriesFromActualDocs(dataArray, activeAccess)
+          : await buildPendingDepartmentsFromActualDocs(dataArray, activeAccess);
 
-      setBuyerSummaryData(pendingDepartments);
-      setFilteredBuyerData(pendingDepartments);
+      setBuyerSummaryData(pendingData);
+      setFilteredBuyerData(pendingData);
     } catch (error) {
       console.error("Error fetching pending summary:", error);
       setError(`Failed to load Export Document data: ${error.message}`);
@@ -699,7 +975,7 @@ function ExportDocsPage() {
       fetchDepartmentsAndSummary(departmentAccess);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, viewMode]);
 
   const handleBuyerSearch = (text) => {
     setBuyerSearchText(text);
@@ -715,7 +991,9 @@ function ExportDocsPage() {
       (item) =>
         item.customerName?.toLowerCase().includes(searchLower) ||
         item.departmentCode?.toLowerCase().includes(searchLower) ||
-        item.departmentName?.toLowerCase().includes(searchLower)
+        item.departmentName?.toLowerCase().includes(searchLower) ||
+        item.factoryCode?.toLowerCase().includes(searchLower) ||
+        item.factoryName?.toLowerCase().includes(searchLower)
     );
 
     setFilteredBuyerData(filtered);
@@ -779,7 +1057,49 @@ function ExportDocsPage() {
     }
   };
 
+  const fetchModalFactoryExportData = async (
+    factoryCode,
+    accessOverride = departmentAccess
+  ) => {
+    setModalLoading(true);
+
+    try {
+      const activeAccess = accessOverride?.loaded
+        ? accessOverride
+        : await loadDepartmentAccess();
+
+      const dataArray = await fetchFactoryExportDocuments(
+        factoryCode,
+        activeAccess
+      );
+
+      const dateFilteredArray = filterBySelectedDates(dataArray);
+
+      setModalExportData(dateFilteredArray);
+      setModalFilteredData(dateFilteredArray);
+      setModalCurrentPage(1);
+      setModalSearchText("");
+    } catch (error) {
+      console.error("Fetch factory modal error:", error);
+      setModalExportData([]);
+      setModalFilteredData([]);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   const handleBadgeClick = async (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      const factoryCode = item?.factoryCode || item?.departmentCode || "";
+      const displayTitle = `${factoryCode || "Unknown Factory"} • Factory Pending Details`;
+
+      setModalDepartmentName(displayTitle);
+      setShowDetailsModal(true);
+
+      await fetchModalFactoryExportData(factoryCode, departmentAccess);
+      return;
+    }
+
     const displayTitle =
       item?.customerName && item?.departmentName
         ? `${item.customerName} • ${item.departmentName}`
@@ -866,11 +1186,26 @@ function ExportDocsPage() {
 
   const cardIcons = ["👥", "👔", "🏬", "👜", "🛒", "📦", "📑", "🏭"];
 
-  const getDisplayName = (item) =>
-    item?.customerName || item?.departmentName || "Unknown";
+  const getDisplayName = (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      return (
+        item?.factoryCode ||
+        item?.factoryName ||
+        item?.customerName ||
+        "Unknown Factory"
+      );
+    }
 
-  const getDepartmentSubText = (item) =>
-    item?.departmentName || item?.departmentCode || "-";
+    return item?.customerName || item?.departmentName || "Unknown";
+  };
+
+  const getDepartmentSubText = (item) => {
+    if (viewMode === "factory" || item?.isFactoryWise) {
+      return item?.factoryName || "Factory Wise Summary";
+    }
+
+    return item?.departmentName || item?.departmentCode || "-";
+  };
 
   const getPendingPercentage = (pending) => {
     if (!maxPending || maxPending <= 0) return 0;
@@ -935,8 +1270,26 @@ function ExportDocsPage() {
     
           </div>
 
-          {/* Date Filters - Compact */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+          {/* Filters - Compact */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+            <div>
+              <label className="mb-1 block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                View By
+              </label>
+              <select
+                value={viewMode}
+                onChange={(e) => {
+                  setViewMode(e.target.value);
+                  setBuyerSearchText("");
+                  setBuyerCurrentPage(1);
+                }}
+                className="w-full rounded-xl bg-[#0b1220] border border-slate-700/60 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="dept">Department Wise</option>
+                <option value="factory">Factory Wise</option>
+              </select>
+            </div>
+
             <div>
               <label className="mb-1 block text-[10px] font-bold uppercase text-slate-400 tracking-wider">
                 From Date
@@ -1011,7 +1364,9 @@ function ExportDocsPage() {
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-blue-500/10 rounded-full px-3 py-1 border border-blue-500/20">
-                <span className="text-xs font-bold text-blue-300">Departments</span>
+                <span className="text-xs font-bold text-blue-300">
+                  {viewMode === "factory" ? "Factories" : "Departments"}
+                </span>
                 <span className="text-sm font-black text-white">{totalBuyerCount}</span>
               </div>
               <div className="flex items-center gap-2 bg-emerald-500/10 rounded-full px-3 py-1 border border-emerald-500/20">
@@ -1025,7 +1380,9 @@ function ExportDocsPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4">
             <div className="rounded-xl bg-[#132238] border border-blue-500/20 px-3 py-2">
               <div className="text-lg font-black text-white">{totalBuyerCount}</div>
-              <div className="text-[10px] font-bold text-blue-300">Departments</div>
+              <div className="text-[10px] font-bold text-blue-300">
+                {viewMode === "factory" ? "Factories" : "Departments"}
+              </div>
             </div>
             <div className="rounded-xl bg-[#102a24] border border-emerald-500/20 px-3 py-2">
               <div className="text-lg font-black text-white">{totalPendingBuyers}</div>
@@ -1048,14 +1405,16 @@ function ExportDocsPage() {
           {/* Search & Cards */}
           <div className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-              <h3 className="text-sm font-black text-white">Pending by Department</h3>
+              <h3 className="text-sm font-black text-white">
+                {viewMode === "factory" ? "Pending by Factory" : "Pending by Department"}
+              </h3>
 
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
                 <input
                   value={buyerSearchText}
                   onChange={(e) => handleBuyerSearch(e.target.value)}
-                  placeholder="Search department..."
+                  placeholder={viewMode === "factory" ? "Search factory..." : "Search department..."}
                   className="w-full sm:w-56 rounded-xl bg-[#1e293b] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -1075,10 +1434,15 @@ function ExportDocsPage() {
 
                     return (
                       <button
-                        key={`${item?.departmentCode || item?.customerName || index}-${index}`}
+                        key={`${item?.factoryCode || item?.departmentCode || item?.customerName || index}-${index}`}
                         type="button"
                         onClick={() => handleBadgeClick(item)}
-                        className="relative overflow-hidden rounded-xl bg-[#161b26] border border-[#293244] p-3 text-left shadow-lg hover:border-blue-500/50 hover:bg-[#1a2232] transition-all group"
+                        className="relative overflow-hidden rounded-xl bg-[#161b26] border border-[#293244] p-3 text-left shadow-lg transition-all group hover:border-blue-500/50 hover:bg-[#1a2232]"
+                        title={
+                          viewMode === "factory"
+                            ? "Click to view factory pending details"
+                            : "Click to view details"
+                        }
                         style={{ borderLeftWidth: 3, borderLeftColor: accentColor }}
                       >
                         <div
@@ -1150,7 +1514,11 @@ function ExportDocsPage() {
             ) : (
               <div className="py-12 text-center">
                 <div className="text-3xl mb-2">✅</div>
-                <h3 className="text-sm font-bold text-slate-200">No pending documents found</h3>
+                <h3 className="text-sm font-bold text-slate-200">
+                  {viewMode === "factory"
+                    ? "No pending factory summary found"
+                    : "No pending documents found"}
+                </h3>
                 <p className="text-xs text-slate-500 mt-1">
                   Check login token, user profile departments, API CORS, and browser console.
                 </p>
@@ -1303,7 +1671,7 @@ function DetailsModal({
         <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20 text-base flex-shrink-0">
-              📄
+              {title?.toLowerCase().includes("factory") ? "🏭" : "📄"}
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-white">{title}</h3>
@@ -1341,7 +1709,7 @@ function DetailsModal({
             <input
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Search packing, customer, style..."
+              placeholder="Search packing, customer, style, factory, WO, contract..."
               className="w-full rounded-xl bg-[#111827] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -1362,8 +1730,9 @@ function DetailsModal({
           </div>
         ) : data.length > 0 ? (
           <div className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0f172a]">
-            <div className="grid grid-cols-[1.6fr_0.9fr_0.8fr] bg-[#16213d] border-b border-white/10 text-[10px] font-bold uppercase text-slate-300">
-              <div className="px-3 py-2">Document</div>
+            <div className="grid grid-cols-[1.5fr_0.9fr_0.8fr_0.8fr] bg-[#16213d] border-b border-white/10 text-[10px] font-bold uppercase text-slate-300">
+              <div className="px-3 py-2">Document / Department</div>
+              <div className="px-3 py-2">Factory / Customer</div>
               <div className="px-3 py-2">Value / Pcs</div>
               <div className="px-3 py-2">Ex-Factory</div>
             </div>
@@ -1372,7 +1741,7 @@ function DetailsModal({
               {data.map((item, index) => (
                 <div
                   key={`${item?.packagingListNo || index}-${index}`}
-                  className={`grid grid-cols-[1.6fr_0.9fr_0.8fr] border-b border-white/5 ${
+                  className={`grid grid-cols-[1.5fr_0.9fr_0.8fr_0.8fr] border-b border-white/5 ${
                     index % 2 === 0 ? "bg-[#0f172a]" : "bg-[#111c31]"
                   }`}
                 >
@@ -1382,14 +1751,23 @@ function DetailsModal({
                         {(currentPage - 1) * itemsPerPage + index + 1}
                       </span>
                       <span className="truncate text-xs font-bold text-white">
-                        {item.packagingListNo || "-"}
+                        {item.expDocumentNo || item.packagingListNo || "-"}
                       </span>
                     </div>
                     <p className="truncate text-[10px] font-bold text-blue-300 mt-0.5">
-                      {item.customerName || "-"}
+                      {item.departmentName || item.departmentCode || "-"}
                     </p>
-                    <p className="truncate text-[9px] font-bold text-slate-400">
-                      {item.departmentName || "-"}
+                    {/* <p className="truncate text-[9px] font-bold text-slate-400">
+                      WO: {item.workOrderNo || "-"} | Contract: {item.contractNo || "-"}
+                    </p> */}
+                  </div>
+
+                  <div className="px-3 py-2 min-w-0">
+                    <p className="truncate text-xs font-bold text-amber-300">
+                      {item.factoryCode || item.exFactoryName || "-"}
+                    </p>
+                    <p className="truncate text-[10px] font-bold text-slate-300">
+                      {item.customerName || item.customerCode || "-"}
                     </p>
                   </div>
 
@@ -1405,6 +1783,9 @@ function DetailsModal({
                   <div className="px-3 py-2">
                     <p className="text-xs font-bold text-emerald-200">
                       {item.exFacDate ? item.exFacDate.split("T")[0] : "-"}
+                    </p>
+                    <p className="text-[9px] font-bold text-slate-400">
+                      Ship: {item.shippingDate ? item.shippingDate.split("T")[0] : "-"}
                     </p>
                   </div>
                 </div>
