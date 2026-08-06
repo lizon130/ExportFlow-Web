@@ -26,6 +26,12 @@ function BLDateCheckPage() {
   const [modalItemsPerPage, setModalItemsPerPage] = useState(20);
   const [modalSearchText, setModalSearchText] = useState("");
 
+  // Total Pending modal
+  const [showAllPendingModal, setShowAllPendingModal] = useState(false);
+  const [allPendingLoading, setAllPendingLoading] = useState(false);
+  const [allPendingRows, setAllPendingRows] = useState([]);
+  const [allPendingSearchText, setAllPendingSearchText] = useState("");
+
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -910,6 +916,218 @@ function BLDateCheckPage() {
     }
   };
 
+  const buildAllPendingGroups = (rows) => {
+    const groupMap = new Map();
+
+    removeDuplicateBlDetails(rows).forEach((item, index) => {
+      const factoryCode = String(
+        item?.factoryCode || item?.exFactoryName || "Unknown Factory"
+      ).trim();
+
+      const customerName = String(
+        item?.customerName || item?.customerCode || "Unknown Buyer"
+      ).trim();
+
+      const departmentName = String(
+        item?.departmentName ||
+          item?.departmentCode ||
+          "Unknown Department"
+      ).trim();
+
+      const departmentCode = String(item?.departmentCode || "").trim();
+
+      const documentNo = String(
+        item?.expDocumentNo ||
+          item?.exportDocumentNo ||
+          item?.packagingListNo ||
+          ""
+      ).trim();
+
+      const key =
+        [
+          normalizeText(factoryCode),
+          normalizeText(customerName),
+          normalizeText(departmentCode || departmentName),
+        ].join("|") || `pending-group-${index}`;
+
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          id: key,
+          factoryCode,
+          customerName,
+          departmentName,
+          departmentCode,
+          documentNumbers: [],
+          sourceRows: [],
+        });
+      }
+
+      const currentGroup = groupMap.get(key);
+      currentGroup.sourceRows.push(item);
+
+      if (
+        documentNo &&
+        !currentGroup.documentNumbers.some(
+          (value) => normalizeText(value) === normalizeText(documentNo)
+        )
+      ) {
+        currentGroup.documentNumbers.push(documentNo);
+      }
+    });
+
+    return Array.from(groupMap.values())
+      .map((group) => ({
+        ...group,
+        pendingCount:
+          group.documentNumbers.length || group.sourceRows.length,
+      }))
+      .filter((group) => group.pendingCount > 0)
+      .sort((a, b) => {
+        const factoryCompare = a.factoryCode.localeCompare(b.factoryCode);
+        if (factoryCompare !== 0) return factoryCompare;
+
+        const buyerCompare = a.customerName.localeCompare(b.customerName);
+        if (buyerCompare !== 0) return buyerCompare;
+
+        return a.departmentName.localeCompare(b.departmentName);
+      });
+  };
+
+  const handleTotalPendingClick = async () => {
+    setShowAllPendingModal(true);
+    setAllPendingLoading(true);
+    setAllPendingRows([]);
+    setAllPendingSearchText("");
+
+    try {
+      const { profile } = await fetchLoggedInUserProfile();
+      const access = buildDepartmentAccess(profile);
+
+      /*
+        FIX:
+        The previous code used depName="" for unrestricted/admin users.
+        That can return an empty detail list even when pending data exists.
+
+        Now the process is:
+        1. Load Get-Pending-BL-Date-Count.
+        2. Collect actual pending department codes.
+        3. Call Get-By-Dept-Bl-Date-List for each department.
+        4. Group by Factory + Buyer/Department.
+      */
+      let summaryRows = [];
+
+      if (access.isRestricted) {
+        if (!access.queryValues.length) {
+          setAllPendingRows([]);
+          return;
+        }
+
+        for (const queryValue of access.queryValues) {
+          try {
+            const summaryData = await fetchJsonWithAuth(
+              getBlSummaryUrl(queryValue)
+            );
+
+            const rows = normalizeArray(summaryData).filter((row) =>
+              rowMatchesDepartmentAccess(row, access)
+            );
+
+            summaryRows = [...summaryRows, ...rows];
+          } catch (summaryError) {
+            console.error(
+              "Pending B/L summary request failed:",
+              queryValue,
+              summaryError
+            );
+          }
+        }
+      } else {
+        const summaryData = await fetchJsonWithAuth(getBlSummaryUrl(""));
+        summaryRows = normalizeArray(summaryData);
+      }
+
+      const pendingSummaryRows = mergeBlSummaryRows(summaryRows).filter(
+        (row) =>
+          getNumber(row?.pendingBLDateCount || row?.pendingBL) > 0
+      );
+
+      const departmentQueries = [];
+
+      pendingSummaryRows.forEach((row) => {
+        const queryValue =
+          String(row?.departmentCode || "").trim() ||
+          String(row?.departmentName || "").trim();
+
+        if (
+          queryValue &&
+          !departmentQueries.some(
+            (existing) =>
+              normalizeText(existing) === normalizeText(queryValue)
+          )
+        ) {
+          departmentQueries.push(queryValue);
+        }
+      });
+
+      /*
+        Restricted-user fallback:
+        Use assigned department values if the summary rows do not contain
+        a department code/name.
+      */
+      if (!departmentQueries.length && access.isRestricted) {
+        access.queryValues.forEach((value) => {
+          const queryValue = String(value || "").trim();
+
+          if (
+            queryValue &&
+            !departmentQueries.some(
+              (existing) =>
+                normalizeText(existing) === normalizeText(queryValue)
+            )
+          ) {
+            departmentQueries.push(queryValue);
+          }
+        });
+      }
+
+      let mergedRows = [];
+
+      for (const departmentQuery of departmentQueries) {
+        try {
+          const detailData = await fetchJsonWithAuth(
+            getBlListUrl(departmentQuery, fromDate, toDate)
+          );
+
+          const detailRows = normalizeArray(detailData)
+            .filter((row) => rowMatchesDepartmentAccess(row, access))
+            .filter((row) => !row?.blDate);
+
+          mergedRows = [...mergedRows, ...detailRows];
+        } catch (detailError) {
+          console.error(
+            "Pending B/L detail request failed:",
+            departmentQuery,
+            detailError
+          );
+        }
+      }
+
+      const uniqueRows = removeDuplicateBlDetails(mergedRows);
+      const dateFilteredRows = filterBySelectedDates(
+        uniqueRows,
+        fromDate,
+        toDate
+      );
+
+      setAllPendingRows(buildAllPendingGroups(dateFilteredRows));
+    } catch (error) {
+      console.error("Fetch all pending B/L error:", error);
+      setAllPendingRows([]);
+      setError(`Failed to load all pending B/L details: ${error.message}`);
+    } finally {
+      setAllPendingLoading(false);
+    }
+  };
   const handleModalSearch = (text) => {
     setModalSearchText(text);
     setModalCurrentPage(1);
@@ -1073,6 +1291,27 @@ function BLDateCheckPage() {
     setFilteredBlData(filtered);
   };
 
+  const normalizedAllPendingSearch = normalizeText(allPendingSearchText);
+
+  const filteredAllPendingRows = allPendingRows.filter((item) => {
+    if (!normalizedAllPendingSearch) return true;
+
+    return [
+      item?.factoryCode,
+      item?.customerName,
+      item?.departmentName,
+      item?.departmentCode,
+      ...(item?.documentNumbers || []),
+    ].some((value) =>
+      normalizeText(value).includes(normalizedAllPendingSearch)
+    );
+  });
+
+  const filteredAllPendingCount = filteredAllPendingRows.reduce(
+    (sum, item) => sum + getNumber(item?.pendingCount),
+    0
+  );
+
   const hasActiveFilters = fromDate !== "" || toDate !== "";
 
   return (
@@ -1209,10 +1448,25 @@ function BLDateCheckPage() {
                 {viewMode === "factory" ? "Factories" : "Departments"}
               </div>
             </div>
-            <div className="rounded-xl bg-[#102a24] border border-emerald-500/20 px-3 py-2">
-              <div className="text-lg font-black text-white">{totalPendingBl}</div>
-              <div className="text-[10px] font-bold text-emerald-300">Total Pending</div>
-            </div>
+            <button
+              type="button"
+              onClick={handleTotalPendingClick}
+              className="rounded-xl bg-[#102a24] border border-emerald-500/20 px-3 py-2 text-left transition hover:bg-[#15372f] hover:border-emerald-400/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              title="Click to view all pending B/L documents"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-lg font-black text-white">
+                    {totalPendingBl}
+                  </div>
+                  <div className="text-[10px] font-bold text-emerald-300">
+                    Total Pending
+                  </div>
+                </div>
+
+                <span className="text-sm text-emerald-300">↗</span>
+              </div>
+            </button>
             <div className="rounded-xl bg-[#2a1a2a] border border-pink-500/20 px-3 py-2">
               <div className="text-lg font-black text-white">
                 {highestPendingItem?.pendingBL || 0}
@@ -1353,6 +1607,22 @@ function BLDateCheckPage() {
         </section>
       </div>
 
+      {showAllPendingModal && (
+        <AllPendingBlModal
+          loading={allPendingLoading}
+          rows={filteredAllPendingRows}
+          totalPending={filteredAllPendingCount}
+          searchText={allPendingSearchText}
+          setSearchText={setAllPendingSearchText}
+          fromDate={fromDate}
+          toDate={toDate}
+          onClose={() => {
+            setShowAllPendingModal(false);
+            setAllPendingSearchText("");
+          }}
+        />
+      )}
+
       {showDetailsModal && (
         <DetailsModal
           title={modalDepartmentName}
@@ -1376,6 +1646,153 @@ function BLDateCheckPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function AllPendingBlModal({
+  loading,
+  rows,
+  totalPending,
+  searchText,
+  setSearchText,
+  fromDate,
+  toDate,
+  onClose,
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/85 p-3 backdrop-blur-sm">
+      <div className="flex h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-lg">
+              🚢
+            </div>
+
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-black text-white">
+                All Pending B/L Documents
+              </h3>
+              <p className="truncate text-[10px] text-slate-400">
+                {fromDate || toDate
+                  ? `${fromDate || "Start"} → ${toDate || "Today"}`
+                  : "All dates"}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-300 transition hover:bg-red-500/20"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 px-4 pt-3">
+          <div className="rounded-xl border border-blue-500/20 bg-[#132238] px-3 py-2">
+            <div className="text-lg font-black text-white">{rows.length}</div>
+            <div className="text-[10px] font-bold text-blue-300">
+              Buyer / Departments
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-emerald-500/20 bg-[#102a24] px-3 py-2">
+            <div className="text-lg font-black text-white">{totalPending}</div>
+            <div className="text-[10px] font-bold text-emerald-300">
+              Pending Documents
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 py-3">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+              🔍
+            </span>
+
+            <input
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search factory, buyer, department or document..."
+              className="w-full rounded-xl border border-white/10 bg-[#111827] py-2 pl-8 pr-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="mx-4 mb-4 flex flex-1 items-center justify-center rounded-xl bg-[#111827] text-sm text-slate-400">
+            Loading all pending B/L documents...
+          </div>
+        ) : rows.length > 0 ? (
+          <div className="mx-4 mb-4 min-h-0 flex-1 overflow-y-auto rounded-xl border border-white/10 bg-[#0f172a]">
+            <div className="sticky top-0 z-10 grid grid-cols-[0.7fr_1.2fr_2fr_0.5fr] border-b border-white/10 bg-[#16213d] text-[10px] font-bold uppercase text-slate-300">
+              <div className="px-3 py-2">Factory</div>
+              <div className="px-3 py-2">Buyer / Department</div>
+              <div className="px-3 py-2">Pending Packing Lists</div>
+              <div className="px-3 py-2 text-center">Count</div>
+            </div>
+
+            {rows.map((item, index) => (
+              <div
+                key={`${item?.id || index}-${index}`}
+                className={`grid grid-cols-[0.7fr_1.2fr_2fr_0.5fr] border-b border-white/5 ${
+                  index % 2 === 0 ? "bg-[#0f172a]" : "bg-[#111c31]"
+                }`}
+              >
+                <div className="px-3 py-3">
+                  <span className="inline-flex rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-xs font-black text-amber-300">
+                    {item?.factoryCode || "-"}
+                  </span>
+                </div>
+
+                <div className="min-w-0 px-3 py-3">
+                  <p className="truncate text-xs font-bold text-white">
+                    {item?.customerName || "-"}
+                  </p>
+                  <p className="mt-0.5 truncate text-[10px] font-bold text-blue-300">
+                    {item?.departmentName || item?.departmentCode || "-"}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 px-3 py-3">
+                  {item?.documentNumbers?.length ? (
+                    item.documentNumbers.map((documentNo) => (
+                      <span
+                        key={`${item?.id}-${documentNo}`}
+                        className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[10px] font-black text-cyan-300"
+                      >
+                        {documentNo}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-500">
+                      Document numbers not returned by API
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-center px-3 py-3">
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-black text-emerald-300">
+                    {item?.pendingCount || 0}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mx-4 mb-4 flex flex-1 flex-col items-center justify-center rounded-xl bg-[#111827] text-center">
+            <div className="mb-2 text-3xl">📭</div>
+            <h3 className="text-sm font-bold text-white">
+              No pending B/L documents found
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Try clearing the search or changing the date range.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -39,6 +39,12 @@ function ExportDocsPage() {
   const [modalCurrentPage, setModalCurrentPage] = useState(1);
   const [modalItemsPerPage, setModalItemsPerPage] = useState(20);
 
+  // Total Pending modal
+  const [showAllPendingModal, setShowAllPendingModal] = useState(false);
+  const [allPendingLoading, setAllPendingLoading] = useState(false);
+  const [allPendingRows, setAllPendingRows] = useState([]);
+  const [allPendingSearchText, setAllPendingSearchText] = useState("");
+
   const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
   const normalizeArray = (data) => {
@@ -1115,6 +1121,91 @@ function ExportDocsPage() {
     );
   };
 
+  const handleTotalPendingClick = async () => {
+    setShowAllPendingModal(true);
+    setAllPendingLoading(true);
+    setAllPendingSearchText("");
+    setAllPendingRows([]);
+
+    try {
+      const activeAccess = departmentAccess?.loaded
+        ? departmentAccess
+        : await loadDepartmentAccess();
+
+      const pendingSourceRows = await fetchRowsFromEndpointByDepName(
+        "/api/Export/Get-Pending-Export-Document-Count",
+        activeAccess
+      );
+
+      const pendingDepartments = await buildPendingDepartmentsFromActualDocs(
+        pendingSourceRows,
+        activeAccess
+      );
+
+      const groupedRows = pendingDepartments
+        .map((item, index) => {
+          const packagingListNos = Array.from(
+            new Set(
+              normalizeArray(item?.packagingListNos)
+                .map((value) => String(value || "").trim())
+                .filter(
+                  (value) =>
+                    value &&
+                    value !== "0" &&
+                    normalizeText(value) !== "null" &&
+                    normalizeText(value) !== "undefined"
+                )
+            )
+          );
+
+          return {
+            id:
+              item?.departmentId ||
+              item?.departmentCode ||
+              item?.departmentName ||
+              index + 1,
+            factoryCode:
+              item?.factoryCode ||
+              item?.exFactoryName ||
+              "Unknown Factory",
+            customerName:
+              item?.customerName ||
+              item?.customerCode ||
+              "Unknown Buyer",
+            departmentName:
+              item?.departmentName ||
+              item?.departmentCode ||
+              "Unknown Department",
+            departmentCode: item?.departmentCode || "",
+            packagingListNos,
+            pendingCount:
+              packagingListNos.length ||
+              Number(item?.pendingExpDocument || item?.pendingExportCount || 0),
+          };
+        })
+        .filter((item) => item.pendingCount > 0)
+        .sort((a, b) => {
+          const factoryCompare = String(a.factoryCode).localeCompare(
+            String(b.factoryCode)
+          );
+
+          if (factoryCompare !== 0) return factoryCompare;
+
+          return String(a.departmentName).localeCompare(
+            String(b.departmentName)
+          );
+        });
+
+      setAllPendingRows(groupedRows);
+    } catch (error) {
+      console.error("Unable to load all pending details:", error);
+      setAllPendingRows([]);
+      setError(`Failed to load all pending details: ${error.message}`);
+    } finally {
+      setAllPendingLoading(false);
+    }
+  };
+
   const handleModalSearch = (text) => {
     setModalSearchText(text);
     setModalCurrentPage(1);
@@ -1259,6 +1350,27 @@ function ExportDocsPage() {
     modalCurrentPage * modalItemsPerPage
   );
 
+  const normalizedAllPendingSearch = normalizeText(allPendingSearchText);
+
+  const filteredAllPendingRows = allPendingRows.filter((item) => {
+    if (!normalizedAllPendingSearch) return true;
+
+    return [
+      item?.factoryCode,
+      item?.customerName,
+      item?.departmentName,
+      item?.departmentCode,
+      ...(item?.packagingListNos || []),
+    ].some((value) =>
+      normalizeText(value).includes(normalizedAllPendingSearch)
+    );
+  });
+
+  const allPendingDocumentCount = filteredAllPendingRows.reduce(
+    (sum, item) => sum + Number(item?.pendingCount || 0),
+    0
+  );
+
   const hasActiveFilters = fromDate !== "" || toDate !== "";
 
   return (
@@ -1384,10 +1496,25 @@ function ExportDocsPage() {
                 {viewMode === "factory" ? "Factories" : "Departments"}
               </div>
             </div>
-            <div className="rounded-xl bg-[#102a24] border border-emerald-500/20 px-3 py-2">
-              <div className="text-lg font-black text-white">{totalPendingBuyers}</div>
-              <div className="text-[10px] font-bold text-emerald-300">Total Pending</div>
-            </div>
+            <button
+              type="button"
+              onClick={handleTotalPendingClick}
+              className="rounded-xl bg-[#102a24] border border-emerald-500/20 px-3 py-2 text-left transition hover:bg-[#15372f] hover:border-emerald-400/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              title="Click to view all pending packing lists"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-lg font-black text-white">
+                    {totalPendingBuyers}
+                  </div>
+                  <div className="text-[10px] font-bold text-emerald-300">
+                    Total Pending
+                  </div>
+                </div>
+
+                <span className="text-sm text-emerald-300">↗</span>
+              </div>
+            </button>
             <div className="rounded-xl bg-[#2a1a2a] border border-pink-500/20 px-3 py-2">
               <div className="text-lg font-black text-white">
                 {highestPendingItem?.pendingExpDocument || 0}
@@ -1528,6 +1655,22 @@ function ExportDocsPage() {
         </section>
       </div>
 
+      {showAllPendingModal && (
+        <AllPendingModal
+          loading={allPendingLoading}
+          rows={filteredAllPendingRows}
+          totalPending={allPendingDocumentCount}
+          searchText={allPendingSearchText}
+          setSearchText={setAllPendingSearchText}
+          fromDate={fromDate}
+          toDate={toDate}
+          onClose={() => {
+            setShowAllPendingModal(false);
+            setAllPendingSearchText("");
+          }}
+        />
+      )}
+
       {showDetailsModal && (
         <DetailsModal
           title={modalDepartmentName}
@@ -1551,6 +1694,153 @@ function ExportDocsPage() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function AllPendingModal({
+  loading,
+  rows,
+  totalPending,
+  searchText,
+  setSearchText,
+  fromDate,
+  toDate,
+  onClose,
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/85 p-3 backdrop-blur-sm">
+      <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-lg">
+              📦
+            </div>
+
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-black text-white">
+                All Pending Packing Lists
+              </h3>
+              <p className="truncate text-[10px] text-slate-400">
+                {fromDate || toDate
+                  ? `${fromDate || "Start"} → ${toDate || "Today"}`
+                  : "All dates"}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-300 transition hover:bg-red-500/20"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 px-4 pt-3">
+          <div className="rounded-xl border border-blue-500/20 bg-[#132238] px-3 py-2">
+            <div className="text-lg font-black text-white">{rows.length}</div>
+            <div className="text-[10px] font-bold text-blue-300">
+              Buyer / Departments
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-emerald-500/20 bg-[#102a24] px-3 py-2">
+            <div className="text-lg font-black text-white">{totalPending}</div>
+            <div className="text-[10px] font-bold text-emerald-300">
+              Pending Documents
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 py-3">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+              🔍
+            </span>
+
+            <input
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search factory, buyer, department or packing list..."
+              className="w-full rounded-xl border border-white/10 bg-[#111827] py-2 pl-8 pr-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="mx-4 mb-4 flex flex-1 items-center justify-center rounded-xl bg-[#111827] text-sm text-slate-400">
+            Loading all pending packing lists...
+          </div>
+        ) : rows.length > 0 ? (
+          <div className="mx-4 mb-4 min-h-0 flex-1 overflow-y-auto rounded-xl border border-white/10 bg-[#0f172a]">
+            <div className="sticky top-0 z-10 grid grid-cols-[0.8fr_1.2fr_2fr_0.5fr] border-b border-white/10 bg-[#16213d] text-[10px] font-bold uppercase text-slate-300">
+              <div className="px-3 py-2">Factory</div>
+              <div className="px-3 py-2">Buyer / Department</div>
+              <div className="px-3 py-2">Pending Packing Lists</div>
+              <div className="px-3 py-2 text-center">Count</div>
+            </div>
+
+            {rows.map((item, index) => (
+              <div
+                key={`${item?.factoryCode}-${item?.departmentCode || item?.departmentName}-${index}`}
+                className={`grid grid-cols-[0.8fr_1.2fr_2fr_0.5fr] border-b border-white/5 ${
+                  index % 2 === 0 ? "bg-[#0f172a]" : "bg-[#111c31]"
+                }`}
+              >
+                <div className="px-3 py-3">
+                  <span className="inline-flex rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-xs font-black text-amber-300">
+                    {item?.factoryCode || "-"}
+                  </span>
+                </div>
+
+                <div className="min-w-0 px-3 py-3">
+                  <p className="truncate text-xs font-bold text-white">
+                    {item?.customerName || "-"}
+                  </p>
+                  <p className="mt-0.5 truncate text-[10px] font-bold text-blue-300">
+                    {item?.departmentName || item?.departmentCode || "-"}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 px-3 py-3">
+                  {item?.packagingListNos?.length ? (
+                    item.packagingListNos.map((packingNo) => (
+                      <span
+                        key={`${item?.id}-${packingNo}`}
+                        className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[10px] font-black text-cyan-300"
+                      >
+                        {packingNo}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-500">
+                      Packing-list numbers not returned by API
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-center px-3 py-3">
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-black text-emerald-300">
+                    {item?.pendingCount || 0}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mx-4 mb-4 flex flex-1 flex-col items-center justify-center rounded-xl bg-[#111827] text-center">
+            <div className="mb-2 text-3xl">📭</div>
+            <h3 className="text-sm font-bold text-white">
+              No pending packing lists found
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Try clearing the search or changing the selected date range.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

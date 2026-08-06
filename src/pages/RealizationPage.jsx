@@ -378,6 +378,14 @@ function RealizationPage() {
     return removeDuplicateRows(mergedRows);
   };
 
+  const fetchUpcomingDocumentRows = async () => {
+    const rows = await fetchRowsForAuthorizedDepartments(
+      "/api/Export/Get-Pending-Realization-Upcomming-Date-Count-List"
+    );
+
+    return removeDuplicateRows(rows);
+  };
+
   const fetchExportValueDetailRows = async () => {
     /*
       FIX:
@@ -1011,6 +1019,54 @@ function RealizationPage() {
     });
   };
 
+  const getUpcomingDocumentMonth = (row) => {
+    const dateValue =
+      row?.shipmentDate ||
+      row?.expectedDate ||
+      row?.realizationDate ||
+      row?.invoiceDate ||
+      row?.expDate ||
+      row?.exFacDate ||
+      null;
+
+    if (!dateValue) return "Unknown Month";
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "Unknown Month";
+
+    return date.toLocaleString("en-US", { month: "long" });
+  };
+
+  const filterUpcomingDocumentsForGroup = (rows, item, viewMode) => {
+    const sourceRows = normalizeArray(rows);
+
+    if (viewMode === "deptBuyer") {
+      return sourceRows.filter(
+        (row) =>
+          normalizeText(row?.departmentCode) === normalizeText(item?.departmentCode) &&
+          normalizeText(row?.customerCode) === normalizeText(item?.customerCode)
+      );
+    }
+
+    if (viewMode === "factory") {
+      return sourceRows.filter(
+        (row) =>
+          normalizeText(row?.factoryCode) ===
+          normalizeText(item?.factoryCode || item?.code || item?.label)
+      );
+    }
+
+    if (viewMode === "month") {
+      return sourceRows.filter(
+        (row) =>
+          normalizeText(getUpcomingDocumentMonth(row)) ===
+          normalizeText(item?.label || item?.month)
+      );
+    }
+
+    return sourceRows;
+  };
+
   const openRealizationGroupDetails = async ({
     item,
     type,
@@ -1018,11 +1074,16 @@ function RealizationPage() {
     config,
     groupMeta,
   }) => {
-    if (viewMode === "month") return;
+    if (viewMode === "month" && type !== "upcoming") return;
 
     setGroupDetailSearchText("");
 
-    const detailViewMode = viewMode === "factory" ? "deptBuyer" : "month";
+    const isUpcomingDocuments = type === "upcoming";
+    const detailViewMode = isUpcomingDocuments
+      ? "documents"
+      : viewMode === "factory"
+      ? "deptBuyer"
+      : "month";
 
     setSelectedRealizationGroup({
       ...item,
@@ -1040,7 +1101,9 @@ function RealizationPage() {
     try {
       let detailSourceRows = [];
 
-      if (viewMode === "factory") {
+      if (isUpcomingDocuments) {
+        detailSourceRows = await fetchUpcomingDocumentRows();
+      } else if (viewMode === "factory") {
         const factoryCode = item?.factoryCode || item?.code || item?.label || "";
         detailSourceRows = await fetchRowsForFactorySafe(type, factoryCode);
       } else if (type === "exportValue") {
@@ -1053,7 +1116,13 @@ function RealizationPage() {
 
       let filteredRows = detailSourceRows;
 
-      if (viewMode === "deptBuyer") {
+      if (isUpcomingDocuments) {
+        filteredRows = filterUpcomingDocumentsForGroup(
+          detailSourceRows,
+          item,
+          viewMode
+        );
+      } else if (viewMode === "deptBuyer") {
         filteredRows = detailSourceRows.filter(
           (row) =>
             normalizeText(row?.departmentCode) === normalizeText(item?.departmentCode) &&
@@ -1061,24 +1130,24 @@ function RealizationPage() {
         );
       } else if (viewMode === "department") {
         filteredRows = detailSourceRows.filter(
-          (row) => normalizeText(row?.departmentCode) === normalizeText(item?.departmentCode)
+          (row) =>
+            normalizeText(row?.departmentCode) === normalizeText(item?.departmentCode)
         );
       } else if (viewMode === "buyer") {
         filteredRows = detailSourceRows.filter(
-          (row) => normalizeText(row?.customerCode) === normalizeText(item?.customerCode)
+          (row) =>
+            normalizeText(row?.customerCode) === normalizeText(item?.customerCode)
         );
       }
 
-      const detailRows =
-        viewMode === "factory"
-          ? buildGroupedRealizationRows(filteredRows, type, "deptBuyer")
-          : buildRealizationGroupMonthDetails(
-              {
-                ...item,
-                sourceRows: filteredRows,
-              },
-              type
-            );
+      const detailRows = isUpcomingDocuments
+        ? removeDuplicateRows(filteredRows)
+        : viewMode === "factory"
+        ? buildGroupedRealizationRows(filteredRows, type, "deptBuyer")
+        : buildRealizationGroupMonthDetails(
+            { ...item, sourceRows: filteredRows },
+            type
+          );
 
       setSelectedRealizationGroup((prev) => ({
         ...(prev || item),
@@ -1132,6 +1201,11 @@ function RealizationPage() {
       row?.monthsText,
       row?.month,
       row?.value,
+      row?.expDocumentNo,
+      row?.packagingListNo,
+      row?.shipmentDate,
+      row?.noOfPcs,
+      row?.totalValue,
     ].some((value) => getSearchableValue(value).includes(normalizedSearch));
   };
 
@@ -1566,9 +1640,28 @@ function RealizationPage() {
     0
   );
 
+  const isUpcomingDocumentModal =
+    selectedRealizationGroup?.type === "upcoming" &&
+    selectedRealizationGroup?.detailViewMode === "documents";
+
   const isFactoryDetailModal =
-    selectedRealizationGroup?.viewMode === "factory" ||
-    selectedRealizationGroup?.detailViewMode === "deptBuyer";
+    !isUpcomingDocumentModal &&
+    (selectedRealizationGroup?.viewMode === "factory" ||
+      selectedRealizationGroup?.detailViewMode === "deptBuyer");
+
+  const upcomingDocumentTotalValue = isUpcomingDocumentModal
+    ? groupDetailRows.reduce(
+        (sum, item) => sum + getNumber(item?.totalValue),
+        0
+      )
+    : 0;
+
+  const upcomingDocumentTotalPcs = isUpcomingDocumentModal
+    ? groupDetailRows.reduce(
+        (sum, item) => sum + getNumber(item?.noOfPcs),
+        0
+      )
+    : 0;
 
   const chartItems = [
     {
@@ -2000,7 +2093,9 @@ function RealizationPage() {
                   {selectedRealizationGroup.label || "-"}
                 </h3>
                 <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-                  {isFactoryDetailModal
+                  {isUpcomingDocumentModal
+                    ? "Upcoming document details"
+                    : isFactoryDetailModal
                     ? "Factory wise Dept/Buyer details"
                     : `${selectedRealizationGroup.groupLabel} wise month details`}
                 </p>
@@ -2025,7 +2120,11 @@ function RealizationPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
                 <div className="rounded-lg bg-[#111827] border border-white/10 p-3">
                   <p className="text-lg font-bold text-white">
-                    {money(groupDetailTotalValue)}
+                    {money(
+                      isUpcomingDocumentModal
+                        ? upcomingDocumentTotalValue
+                        : groupDetailTotalValue
+                    )}
                   </p>
                   <p className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">
                     Total Value
@@ -2034,7 +2133,11 @@ function RealizationPage() {
 
                 <div className="rounded-lg bg-[#111827] border border-white/10 p-3">
                   <p className="text-lg font-bold text-blue-300">
-                    {groupDetailTotalDocuments.toLocaleString()}
+                    {(
+                      isUpcomingDocumentModal
+                        ? groupDetailRows.length
+                        : groupDetailTotalDocuments
+                    ).toLocaleString()}
                   </p>
                   <p className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">
                     Documents
@@ -2043,7 +2146,11 @@ function RealizationPage() {
 
                 <div className="rounded-lg bg-[#111827] border border-white/10 p-3">
                   <p className="text-lg font-bold text-emerald-300">
-                    {groupDetailTotalPcs.toLocaleString()}
+                    {(
+                      isUpcomingDocumentModal
+                        ? upcomingDocumentTotalPcs
+                        : groupDetailTotalPcs
+                    ).toLocaleString()}
                   </p>
                   <p className="text-[9px] font-bold uppercase text-slate-400 mt-0.5">
                     PCS
@@ -2058,7 +2165,9 @@ function RealizationPage() {
                     value={groupDetailSearchText}
                     onChange={(e) => setGroupDetailSearchText(e.target.value)}
                     placeholder={
-                      isFactoryDetailModal
+                      isUpcomingDocumentModal
+                        ? "Search document, department, buyer, factory or value..."
+                        : isFactoryDetailModal
                         ? "Search department, buyer, month, code or value..."
                         : "Search month or value..."
                     }
@@ -2081,7 +2190,16 @@ function RealizationPage() {
                 <table className="min-w-full">
                   <thead className="sticky top-0 bg-[#16213d]">
                     <tr>
-                      {isFactoryDetailModal ? (
+                      {isUpcomingDocumentModal ? (
+                        <>
+                          <Th>Document</Th>
+                          <Th>Factory</Th>
+                          <Th>Buyer / Department</Th>
+                          <Th>Shipment Date</Th>
+                          <Th>PCS</Th>
+                          <Th>Value</Th>
+                        </>
+                      ) : isFactoryDetailModal ? (
                         <>
                           <Th>Department / Buyer</Th>
                           <Th>Month</Th>
@@ -2101,7 +2219,7 @@ function RealizationPage() {
                     {selectedRealizationGroup?.loading ? (
                       <tr>
                         <td
-                          colSpan={isFactoryDetailModal ? 5 : 2}
+                          colSpan={isUpcomingDocumentModal ? 6 : isFactoryDetailModal ? 5 : 2}
                           className="px-3 py-8 text-center text-sm text-slate-400"
                         >
                           Loading factory details...
@@ -2110,7 +2228,7 @@ function RealizationPage() {
                     ) : selectedRealizationGroup?.error ? (
                       <tr>
                         <td
-                          colSpan={isFactoryDetailModal ? 5 : 2}
+                          colSpan={isUpcomingDocumentModal ? 6 : isFactoryDetailModal ? 5 : 2}
                           className="px-3 py-8 text-center text-sm text-red-300"
                         >
                           {selectedRealizationGroup.error}
@@ -2126,7 +2244,42 @@ function RealizationPage() {
                             index % 2 === 0 ? "bg-[#0f172a]" : "bg-[#111c31]"
                           }`}
                         >
-                          {isFactoryDetailModal ? (
+                          {isUpcomingDocumentModal ? (
+                            <>
+                              <Td strong>
+                                {item?.expDocumentNo ||
+                                  item?.exportDocumentNo ||
+                                  item?.packagingListNo ||
+                                  "-"}
+                              </Td>
+                              <Td>{item?.factoryCode || "-"}</Td>
+                              <Td>
+                                <div>
+                                  <p className="font-bold text-white">
+                                    {item?.customerName ||
+                                      item?.customerCode ||
+                                      "-"}
+                                  </p>
+                                  <p className="mt-0.5 text-[10px] font-bold text-blue-300">
+                                    {item?.departmentName ||
+                                      item?.departmentCode ||
+                                      "-"}
+                                  </p>
+                                </div>
+                              </Td>
+                              <Td>
+                                {item?.shipmentDate
+                                  ? String(item.shipmentDate).split("T")[0]
+                                  : "-"}
+                              </Td>
+                              <Td>
+                                {getNumber(item?.noOfPcs).toLocaleString()}
+                              </Td>
+                              <Td value>
+                                {compactMoney(getNumber(item?.totalValue))}
+                              </Td>
+                            </>
+                          ) : isFactoryDetailModal ? (
                             <>
                               <Td strong>
                                 <div>
@@ -2155,10 +2308,12 @@ function RealizationPage() {
                     ) : (
                       <tr>
                         <td
-                          colSpan={isFactoryDetailModal ? 5 : 2}
+                          colSpan={isUpcomingDocumentModal ? 6 : isFactoryDetailModal ? 5 : 2}
                           className="px-3 py-8 text-center text-sm text-slate-400"
                         >
-                          {isFactoryDetailModal
+                          {isUpcomingDocumentModal
+                            ? "No upcoming documents found"
+                            : isFactoryDetailModal
                             ? "No factory Dept/Buyer details found"
                             : "No matching month found"}
                         </td>

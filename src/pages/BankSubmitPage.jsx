@@ -32,6 +32,12 @@ function BankSubmitPage() {
   const [modalItemsPerPage, setModalItemsPerPage] = useState(20);
   const [modalSearchText, setModalSearchText] = useState("");
 
+  // Total Pending Bank Submission modal
+  const [showAllPendingModal, setShowAllPendingModal] = useState(false);
+  const [allPendingLoading, setAllPendingLoading] = useState(false);
+  const [allPendingRows, setAllPendingRows] = useState([]);
+  const [allPendingSearchText, setAllPendingSearchText] = useState("");
+
   const [departmentAccess, setDepartmentAccess] = useState({
     loaded: false,
     accessToken: "",
@@ -53,7 +59,7 @@ function BankSubmitPage() {
       : 0;
     const safeTotalPages = Math.max(
       1,
-      Math.ceil(safeLength / modalItemsPerPage)
+      Math.ceil(safeLength / modalItemsPerPage),
     );
 
     if (modalCurrentPage > safeTotalPages) {
@@ -94,7 +100,10 @@ function BankSubmitPage() {
     return Number.isFinite(numberValue) ? numberValue : 0;
   };
 
-  const normalizeText = (value) => String(value ?? "").trim().toLowerCase();
+  const normalizeText = (value) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
 
   const getUniqueBankRowKey = (item, index) => {
     const keyValue =
@@ -168,8 +177,10 @@ function BankSubmitPage() {
       const jsonPayload = decodeURIComponent(
         atob(base64)
           .split("")
-          .map((char) => "%" + ("00" + char.charCodeAt(0).toString(16)).slice(-2))
-          .join("")
+          .map(
+            (char) => "%" + ("00" + char.charCodeAt(0).toString(16)).slice(-2),
+          )
+          .join(""),
       );
 
       return JSON.parse(jsonPayload);
@@ -206,11 +217,13 @@ function BankSubmitPage() {
     ];
 
     for (const key of storageKeys) {
-      const raw = key === "accessToken" || key === "token"
-        ? localStorage.getItem(key)
-        : getStoredJsonValue(key);
+      const raw =
+        key === "accessToken" || key === "token"
+          ? localStorage.getItem(key)
+          : getStoredJsonValue(key);
 
-      const token = typeof raw === "string" ? raw : getAccessTokenFromPayload(raw);
+      const token =
+        typeof raw === "string" ? raw : getAccessTokenFromPayload(raw);
       if (token) return token;
     }
 
@@ -259,7 +272,7 @@ function BankSubmitPage() {
         profile?.userDepartments ||
         profile?.user?.departments ||
         profile?.profile?.departments ||
-        []
+        [],
     );
   };
 
@@ -271,7 +284,7 @@ function BankSubmitPage() {
         profile?.userBuyers ||
         profile?.user?.buyers ||
         profile?.profile?.buyers ||
-        []
+        [],
     );
   };
 
@@ -283,7 +296,7 @@ function BankSubmitPage() {
         department?.departmentName ||
         department?.deptName ||
         department?.name ||
-        ""
+        "",
     ).trim();
 
     const departmentName = String(
@@ -292,7 +305,7 @@ function BankSubmitPage() {
         department?.depName ||
         department?.departmentCode ||
         department?.name ||
-        ""
+        "",
     ).trim();
 
     const buyerName = String(
@@ -301,7 +314,7 @@ function BankSubmitPage() {
         department?.customerName ||
         departmentName ||
         departmentCode ||
-        ""
+        "",
     ).trim();
 
     const buyerCode = String(
@@ -310,7 +323,7 @@ function BankSubmitPage() {
         department?.customerCode ||
         buyer?.buyerRecId ||
         departmentCode ||
-        ""
+        "",
     ).trim();
 
     return {
@@ -339,7 +352,7 @@ function BankSubmitPage() {
       if (
         textValue &&
         !uniqueCandidates.some(
-          (item) => item.toLowerCase() === textValue.toLowerCase()
+          (item) => item.toLowerCase() === textValue.toLowerCase(),
         )
       ) {
         uniqueCandidates.push(textValue);
@@ -360,7 +373,10 @@ function BankSubmitPage() {
       department?.departmentCode ||
       "-",
     customerCode:
-      row?.customerCode || department?.customerCode || department?.departmentCode || "",
+      row?.customerCode ||
+      department?.customerCode ||
+      department?.departmentCode ||
+      "",
     customerName:
       row?.customerName ||
       department?.customerName ||
@@ -377,9 +393,9 @@ function BankSubmitPage() {
         sum +
         metricFields.reduce(
           (fieldSum, field) => fieldSum + getNumber(item?.[field]),
-          0
+          0,
         ),
-      0
+      0,
     );
 
     return metricScore > 0 ? metricScore : rows.length;
@@ -388,7 +404,7 @@ function BankSubmitPage() {
   const buildDepartmentUrl = (endpoint, depName) => {
     const separator = endpoint.includes("?") ? "&" : "?";
     return `${API_BASE_URL}${endpoint}${separator}depName=${encodeURIComponent(
-      depName || ""
+      depName || "",
     )}`;
   };
 
@@ -436,7 +452,7 @@ function BankSubmitPage() {
     if (apiToDate) params.push(`toDate=${encodeURIComponent(apiToDate)}`);
 
     return `/api/Export/Get-By-Factory-Bank-Submission-Date-List?${params.join(
-      "&"
+      "&",
     )}`;
   };
 
@@ -466,7 +482,7 @@ function BankSubmitPage() {
       throw new Error(
         typeof data === "string"
           ? data
-          : data?.message || `HTTP error! status: ${response.status}`
+          : data?.message || `HTTP error! status: ${response.status}`,
       );
     }
 
@@ -477,7 +493,7 @@ function BankSubmitPage() {
     endpoint,
     department,
     metricFields = [],
-    accessOverride = departmentAccess
+    accessOverride = departmentAccess,
   ) => {
     const candidates = getDepartmentQueryCandidates(department);
     let bestRows = [];
@@ -487,11 +503,11 @@ function BankSubmitPage() {
       try {
         const data = await fetchJson(
           buildDepartmentUrl(endpoint, depName),
-          accessOverride?.accessToken || ""
+          accessOverride?.accessToken || "",
         );
 
         const rows = normalizeArray(data).map((row) =>
-          attachDepartmentFallback(row, department)
+          attachDepartmentFallback(row, department),
         );
 
         const score = getRowsScore(rows, metricFields);
@@ -511,22 +527,22 @@ function BankSubmitPage() {
   const fetchRowsForAssignedDepartments = async (
     endpoint,
     accessOverride,
-    metricFields = []
+    metricFields = [],
   ) => {
     const departments = normalizeArray(accessOverride?.departments);
 
     if (!departments.length) {
       const data = await fetchJson(
         `${API_BASE_URL}${endpoint}`,
-        accessOverride?.accessToken || ""
+        accessOverride?.accessToken || "",
       );
       return normalizeArray(data);
     }
 
     const nestedRows = await Promise.all(
       departments.map((department) =>
-        fetchDepartmentRows(endpoint, department, metricFields, accessOverride)
-      )
+        fetchDepartmentRows(endpoint, department, metricFields, accessOverride),
+      ),
     );
 
     return nestedRows.flat();
@@ -576,7 +592,7 @@ function BankSubmitPage() {
         try {
           userProfile = await fetchJson(
             `${API_BASE_URL}/api/User/${encodeURIComponent(userId)}/profile`,
-            accessToken
+            accessToken,
           );
         } catch (profileError) {
           console.error("Error fetching logged-in user profile:", profileError);
@@ -589,8 +605,12 @@ function BankSubmitPage() {
     const firstBuyer = profileBuyers[0] || null;
 
     const departments = profileDepartments
-      .map((department) => normalizeDepartmentAccessItem(department, firstBuyer))
-      .filter((department) => department.departmentCode || department.departmentName);
+      .map((department) =>
+        normalizeDepartmentAccessItem(department, firstBuyer),
+      )
+      .filter(
+        (department) => department.departmentCode || department.departmentName,
+      );
 
     return {
       loaded: true,
@@ -614,13 +634,13 @@ function BankSubmitPage() {
       the pending/submitted/total values from filtered rows.
     */
     const detailEndpoint = addDateParamsToEndpoint(
-      "/api/Export/Get-By-Dept-Bank-Submission-Date-List"
+      "/api/Export/Get-By-Dept-Bank-Submission-Date-List",
     );
 
     const detailRows = await fetchRowsForAssignedDepartments(
       detailEndpoint,
       accessOverride,
-      ["totalValue", "noOfPcs", "noOfCarton"]
+      ["totalValue", "noOfPcs", "noOfCarton"],
     );
 
     return filterBySelectedDates(detailRows);
@@ -639,7 +659,7 @@ function BankSubmitPage() {
           getNumber(item?.totalExportValue) ||
           getNumber(item?.pendingValue) ||
           0),
-      0
+      0,
     );
 
     return {
@@ -657,7 +677,8 @@ function BankSubmitPage() {
         : await loadDepartmentAccess();
 
       if (fromDate || toDate) {
-        const filteredRows = await fetchDateFilteredBankRowsForDepartments(activeAccess);
+        const filteredRows =
+          await fetchDateFilteredBankRowsForDepartments(activeAccess);
         setSummaryStats(calculateDateFilteredSummaryStats(filteredRows));
         return;
       }
@@ -672,7 +693,7 @@ function BankSubmitPage() {
             "totalValue",
             "totalExportValue",
             "pendingValue",
-          ]
+          ],
         ),
         fetchRowsForAssignedDepartments(
           "/api/Export/Get-Completed-Bank-Submission-Date-Count",
@@ -681,7 +702,7 @@ function BankSubmitPage() {
             "completedBankSubmissionDateCount",
             "completedBank",
             "totalPackagingCount",
-          ]
+          ],
         ),
       ]);
 
@@ -689,7 +710,7 @@ function BankSubmitPage() {
         (sum, item) =>
           sum +
           getNumber(item?.pendingBankSubmissionDateCount || item?.pendingBank),
-        0
+        0,
       );
 
       const totalValue = pendingArray.reduce(
@@ -699,7 +720,7 @@ function BankSubmitPage() {
             getNumber(item?.totalExportValue) ||
             getNumber(item?.pendingValue) ||
             0),
-        0
+        0,
       );
 
       const completedCount = completedArray.reduce(
@@ -709,7 +730,7 @@ function BankSubmitPage() {
             getNumber(item?.completedBank) ||
             getNumber(item?.totalPackagingCount) ||
             0),
-        0
+        0,
       );
 
       setSummaryStats({
@@ -735,7 +756,8 @@ function BankSubmitPage() {
       Main department cards must also follow From Date / To Date.
       We build cards from filtered detail rows when dates are selected.
     */
-    const detailRows = await fetchDateFilteredBankRowsForDepartments(activeAccess);
+    const detailRows =
+      await fetchDateFilteredBankRowsForDepartments(activeAccess);
     const pendingRows = detailRows.filter((row) => !row?.bankSubmissionDate);
 
     const grouped = new Map();
@@ -745,7 +767,7 @@ function BankSubmitPage() {
         row?.departmentCode ||
           row?.departmentName ||
           row?.customerName ||
-          `unknown-${index}`
+          `unknown-${index}`,
       );
 
       const existing = grouped.get(key) || {
@@ -794,7 +816,8 @@ function BankSubmitPage() {
 
     normalizeArray(rows).forEach((item, index) => {
       const pendingCount =
-        getNumber(item?.pendingBankSubmissionDateCount || item?.pendingBank) || 1;
+        getNumber(item?.pendingBankSubmissionDateCount || item?.pendingBank) ||
+        1;
 
       if (pendingCount <= 0) return;
 
@@ -818,14 +841,14 @@ function BankSubmitPage() {
       current.pendingBankSubmissionDateCount += pendingCount;
       current.pendingBank += pendingCount;
       current.totalValue += getNumber(
-        item?.totalValue || item?.totalExportValue || item?.pendingValue
+        item?.totalValue || item?.totalExportValue || item?.pendingValue,
       );
 
       factoryMap.set(key, current);
     });
 
     return Array.from(factoryMap.values()).sort(
-      (a, b) => (b?.pendingBank || 0) - (a?.pendingBank || 0)
+      (a, b) => (b?.pendingBank || 0) - (a?.pendingBank || 0),
     );
   };
 
@@ -838,34 +861,44 @@ function BankSubmitPage() {
         ? accessOverride
         : await loadDepartmentAccess();
 
-      const dataArray = fromDate || toDate
-        ? viewMode === "factory"
-          ? (await fetchDateFilteredBankRowsForDepartments(activeAccess)).filter(
-              (row) => !row?.bankSubmissionDate
-            )
-          : await buildDateAwarePendingBankSummary(activeAccess)
-        : await fetchRowsForAssignedDepartments(
-            "/api/Export/Get-Pending-Bank-Submission-Date-Count",
-            activeAccess,
-            [
-              "pendingBankSubmissionDateCount",
-              "pendingBank",
-              "totalValue",
-              "totalExportValue",
-              "pendingValue",
-            ]
-          );
+      const dataArray =
+        fromDate || toDate
+          ? viewMode === "factory"
+            ? (
+                await fetchDateFilteredBankRowsForDepartments(activeAccess)
+              ).filter((row) => !row?.bankSubmissionDate)
+            : await buildDateAwarePendingBankSummary(activeAccess)
+          : await fetchRowsForAssignedDepartments(
+              "/api/Export/Get-Pending-Bank-Submission-Date-Count",
+              activeAccess,
+              [
+                "pendingBankSubmissionDateCount",
+                "pendingBank",
+                "totalValue",
+                "totalExportValue",
+                "pendingValue",
+              ],
+            );
 
       const pendingBankDepartments =
         viewMode === "factory"
           ? buildFactoryWiseBankSummary(dataArray)
           : dataArray
-              .filter((item) => getNumber(item?.pendingBankSubmissionDateCount || item?.pendingBank) > 0)
+              .filter(
+                (item) =>
+                  getNumber(
+                    item?.pendingBankSubmissionDateCount || item?.pendingBank,
+                  ) > 0,
+              )
               .map((item) => ({
                 ...item,
-                pendingBank: getNumber(item?.pendingBankSubmissionDateCount || item?.pendingBank),
-                customerName: item?.customerName || item?.departmentName || "Unknown",
-                departmentName: item?.departmentName || item?.departmentCode || "-",
+                pendingBank: getNumber(
+                  item?.pendingBankSubmissionDateCount || item?.pendingBank,
+                ),
+                customerName:
+                  item?.customerName || item?.departmentName || "Unknown",
+                departmentName:
+                  item?.departmentName || item?.departmentCode || "-",
                 departmentCode: item?.departmentCode || "",
                 totalValue: getNumber(item?.totalValue),
               }))
@@ -952,7 +985,7 @@ function BankSubmitPage() {
         item?.exFactoryName?.toLowerCase().includes(searchLower) ||
         item?.workOrderNo?.toLowerCase().includes(searchLower) ||
         item?.contractNo?.toLowerCase().includes(searchLower) ||
-        item?.totalValue?.toString().toLowerCase().includes(searchLower)
+        item?.totalValue?.toString().toLowerCase().includes(searchLower),
     );
   };
 
@@ -966,15 +999,19 @@ function BankSubmitPage() {
         : await loadDepartmentAccess();
 
       const dataArray = await fetchDepartmentRows(
-        addDateParamsToEndpoint("/api/Export/Get-By-Dept-Bank-Submission-Date-List"),
+        addDateParamsToEndpoint(
+          "/api/Export/Get-By-Dept-Bank-Submission-Date-List",
+        ),
         item,
         ["totalValue", "noOfPcs", "noOfCarton"],
-        activeAccess
+        activeAccess,
       );
 
       const pendingRows = dataArray.filter((row) => !row?.bankSubmissionDate);
       const rowsForModal = pendingRows.length > 0 ? pendingRows : dataArray;
-      const dateFilteredData = filterBySelectedDates(removeDuplicateBankRows(rowsForModal));
+      const dateFilteredData = filterBySelectedDates(
+        removeDuplicateBankRows(rowsForModal),
+      );
 
       setModalBankData(dateFilteredData);
       setModalFilteredData(dateFilteredData);
@@ -998,7 +1035,7 @@ function BankSubmitPage() {
     setModalSearchText("");
     setModalCurrentPage(1);
     setModalDepartmentName(
-      `${factoryCode || "Unknown Factory"} • Factory Bank Submission Pending Details`
+      `${factoryCode || "Unknown Factory"} • Factory Bank Submission Pending Details`,
     );
     setShowDetailsModal(true);
 
@@ -1013,13 +1050,13 @@ function BankSubmitPage() {
       const data = await fetchJson(url, activeAccess?.accessToken || "");
 
       const dataArray = normalizeArray(data).filter(
-        (row) => normalizeText(row?.factoryCode) === normalizedFactoryCode
+        (row) => normalizeText(row?.factoryCode) === normalizedFactoryCode,
       );
 
       const pendingRows = dataArray.filter((row) => !row?.bankSubmissionDate);
       const rowsForModal = pendingRows.length > 0 ? pendingRows : dataArray;
       const dateFilteredData = filterBySelectedDates(
-        removeDuplicateBankRows(rowsForModal)
+        removeDuplicateBankRows(rowsForModal),
       );
 
       setModalBankData(dateFilteredData);
@@ -1043,6 +1080,221 @@ function BankSubmitPage() {
     setModalDepartmentName(getFullDisplayName(item));
     setShowDetailsModal(true);
     await fetchModalBankData(item);
+  };
+
+  const buildAllPendingBankGroups = (rows) => {
+    const groupMap = new Map();
+
+    removeDuplicateBankRows(rows).forEach((item, index) => {
+      const factoryCode = String(
+        item?.factoryCode || item?.exFactoryName || "Unknown Factory",
+      ).trim();
+
+      const customerName = String(
+        item?.customerName || item?.customerCode || "Unknown Buyer",
+      ).trim();
+
+      const departmentName = String(
+        item?.departmentName || item?.departmentCode || "Unknown Department",
+      ).trim();
+
+      const departmentCode = String(item?.departmentCode || "").trim();
+
+      const documentNo = String(
+        item?.expDocumentNo ||
+          item?.exportDocumentNo ||
+          item?.packagingListNo ||
+          item?.exportShippingBillNumber ||
+          "",
+      ).trim();
+
+      const key =
+        [
+          normalizeText(factoryCode),
+          normalizeText(customerName),
+          normalizeText(departmentCode || departmentName),
+        ].join("|") || `pending-bank-group-${index}`;
+
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          id: key,
+          factoryCode,
+          customerName,
+          departmentName,
+          departmentCode,
+          documentNumbers: [],
+          sourceRows: [],
+        });
+      }
+
+      const currentGroup = groupMap.get(key);
+      currentGroup.sourceRows.push(item);
+
+      if (
+        documentNo &&
+        documentNo !== "0" &&
+        !currentGroup.documentNumbers.some(
+          (value) => normalizeText(value) === normalizeText(documentNo),
+        )
+      ) {
+        currentGroup.documentNumbers.push(documentNo);
+      }
+    });
+
+    return Array.from(groupMap.values())
+      .map((group) => ({
+        ...group,
+        pendingCount: group.documentNumbers.length || group.sourceRows.length,
+      }))
+      .filter((group) => group.pendingCount > 0)
+      .sort((a, b) => {
+        const factoryCompare = a.factoryCode.localeCompare(b.factoryCode);
+        if (factoryCompare !== 0) return factoryCompare;
+
+        const buyerCompare = a.customerName.localeCompare(b.customerName);
+        if (buyerCompare !== 0) return buyerCompare;
+
+        return a.departmentName.localeCompare(b.departmentName);
+      });
+  };
+
+  const handleTotalPendingClick = async () => {
+    setShowAllPendingModal(true);
+    setAllPendingLoading(true);
+    setAllPendingRows([]);
+    setAllPendingSearchText("");
+
+    try {
+      const activeAccess = departmentAccess?.loaded
+        ? departmentAccess
+        : await loadDepartmentAccess();
+
+      if (!departmentAccess?.loaded) {
+        setDepartmentAccess(activeAccess);
+      }
+
+      /*
+        Same process as B/L Pending:
+        1. Read pending bank-submission summary.
+        2. Collect real pending department codes.
+        3. Call Get-By-Dept-Bank-Submission-Date-List per department.
+        4. Keep records where bankSubmissionDate is empty.
+        5. Group by Factory + Buyer/Department.
+      */
+      const summaryRows = await fetchRowsForAssignedDepartments(
+        "/api/Export/Get-Pending-Bank-Submission-Date-Count",
+        activeAccess,
+        [
+          "pendingBankSubmissionDateCount",
+          "pendingBank",
+          "totalValue",
+          "totalExportValue",
+          "pendingValue",
+        ],
+      );
+
+      const pendingSummaryRows = normalizeArray(summaryRows).filter(
+        (row) =>
+          getNumber(row?.pendingBankSubmissionDateCount || row?.pendingBank) >
+          0,
+      );
+
+      const departmentQueries = [];
+
+      pendingSummaryRows.forEach((row) => {
+        const queryValue =
+          String(row?.departmentCode || "").trim() ||
+          String(row?.departmentName || "").trim();
+
+        if (
+          queryValue &&
+          !departmentQueries.some(
+            (existing) => normalizeText(existing) === normalizeText(queryValue),
+          )
+        ) {
+          departmentQueries.push(queryValue);
+        }
+      });
+
+      if (!departmentQueries.length) {
+        normalizeArray(activeAccess?.departments).forEach((department) => {
+          getDepartmentQueryCandidates(department).forEach((value) => {
+            if (
+              value &&
+              !departmentQueries.some(
+                (existing) => normalizeText(existing) === normalizeText(value),
+              )
+            ) {
+              departmentQueries.push(value);
+            }
+          });
+        });
+      }
+
+      let mergedRows = [];
+
+      for (const departmentQuery of departmentQueries) {
+        try {
+          const endpoint = addDateParamsToEndpoint(
+            "/api/Export/Get-By-Dept-Bank-Submission-Date-List",
+          );
+
+          const data = await fetchJson(
+            buildDepartmentUrl(endpoint, departmentQuery),
+            activeAccess?.accessToken || "",
+          );
+
+          const rows = normalizeArray(data).filter(
+            (row) => !row?.bankSubmissionDate,
+          );
+
+          mergedRows = [...mergedRows, ...rows];
+        } catch (detailError) {
+          console.error(
+            "Pending bank detail request failed:",
+            departmentQuery,
+            detailError,
+          );
+        }
+      }
+
+      /*
+        Admin/unrestricted fallback:
+        If no department query could be built, call the detail endpoint once.
+      */
+      if (!departmentQueries.length) {
+        try {
+          const endpoint = addDateParamsToEndpoint(
+            "/api/Export/Get-By-Dept-Bank-Submission-Date-List",
+          );
+
+          const data = await fetchJson(
+            `${API_BASE_URL}${endpoint}`,
+            activeAccess?.accessToken || "",
+          );
+
+          mergedRows = normalizeArray(data).filter(
+            (row) => !row?.bankSubmissionDate,
+          );
+        } catch (fallbackError) {
+          console.error(
+            "Pending bank unrestricted fallback failed:",
+            fallbackError,
+          );
+        }
+      }
+
+      const uniqueRows = removeDuplicateBankRows(mergedRows);
+      const dateFilteredRows = filterBySelectedDates(uniqueRows);
+
+      setAllPendingRows(buildAllPendingBankGroups(dateFilteredRows));
+    } catch (error) {
+      console.error("Fetch all pending bank submissions error:", error);
+      setAllPendingRows([]);
+      setError(`Failed to load all pending bank submissions: ${error.message}`);
+    } finally {
+      setAllPendingLoading(false);
+    }
   };
 
   const handleModalSearch = (text) => {
@@ -1104,7 +1356,7 @@ function BankSubmitPage() {
         item?.departmentName?.toLowerCase().includes(key) ||
         item?.departmentCode?.toLowerCase().includes(key) ||
         item?.factoryCode?.toLowerCase().includes(key) ||
-        item?.factoryName?.toLowerCase().includes(key)
+        item?.factoryName?.toLowerCase().includes(key),
     );
   }, [bankSafeData, searchText]);
 
@@ -1113,12 +1365,12 @@ function BankSubmitPage() {
 
   const bankCurrentPageData = filteredBankData.slice(
     (bankCurrentPage - 1) * bankItemsPerPage,
-    bankCurrentPage * bankItemsPerPage
+    bankCurrentPage * bankItemsPerPage,
   );
 
   const totalPendingBank = filteredBankData.reduce(
     (sum, item) => sum + (item?.pendingBank || 0),
-    0
+    0,
   );
 
   const totalDepartmentCount = filteredBankData.length;
@@ -1139,7 +1391,7 @@ function BankSubmitPage() {
       : 0;
 
   const sortedPendingBankData = [...filteredBankData].sort(
-    (a, b) => (b?.pendingBank || 0) - (a?.pendingBank || 0)
+    (a, b) => (b?.pendingBank || 0) - (a?.pendingBank || 0),
   );
 
   const highestPendingItem = sortedPendingBankData[0] || null;
@@ -1153,12 +1405,12 @@ function BankSubmitPage() {
 
   const modalTotalPages = Math.max(
     1,
-    Math.ceil(modalSafeFilteredData.length / modalItemsPerPage)
+    Math.ceil(modalSafeFilteredData.length / modalItemsPerPage),
   );
 
   const modalCurrentPageData = modalSafeFilteredData.slice(
     (modalCurrentPage - 1) * modalItemsPerPage,
-    modalCurrentPage * modalItemsPerPage
+    modalCurrentPage * modalItemsPerPage,
   );
 
   const cardAccentColors = [
@@ -1257,6 +1509,27 @@ function BankSubmitPage() {
       : "bg-red-500/10 border-red-500/30 text-red-300";
   };
 
+  const normalizedAllPendingSearch = normalizeText(allPendingSearchText);
+
+  const filteredAllPendingRows = allPendingRows.filter((item) => {
+    if (!normalizedAllPendingSearch) return true;
+
+    return [
+      item?.factoryCode,
+      item?.customerName,
+      item?.departmentName,
+      item?.departmentCode,
+      ...(item?.documentNumbers || []),
+    ].some((value) =>
+      normalizeText(value).includes(normalizedAllPendingSearch),
+    );
+  });
+
+  const filteredAllPendingCount = filteredAllPendingRows.reduce(
+    (sum, item) => sum + Number(item?.pendingCount || 0),
+    0,
+  );
+
   const hasActiveFilters = fromDate !== "" || toDate !== "";
 
   return (
@@ -1264,7 +1537,6 @@ function BankSubmitPage() {
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
         <div className="rounded-2xl bg-[#101827] border border-white/10 p-4 shadow-2xl">
-        
           {/* Filters - Compact */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
             <div>
@@ -1292,7 +1564,9 @@ function BankSubmitPage() {
               <input
                 type="date"
                 value={formatDateForInput(fromDate)}
-                onChange={(e) => setFromDate(formatInputDateToDisplay(e.target.value))}
+                onChange={(e) =>
+                  setFromDate(formatInputDateToDisplay(e.target.value))
+                }
                 className="w-full rounded-xl bg-[#0b1220] border border-slate-700/60 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -1304,7 +1578,9 @@ function BankSubmitPage() {
               <input
                 type="date"
                 value={formatDateForInput(toDate)}
-                onChange={(e) => setToDate(formatInputDateToDisplay(e.target.value))}
+                onChange={(e) =>
+                  setToDate(formatInputDateToDisplay(e.target.value))
+                }
                 className="w-full rounded-xl bg-[#0b1220] border border-slate-700/60 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -1331,18 +1607,28 @@ function BankSubmitPage() {
                   >
                     ✕ Reset
                   </button>
-                  
+
                   <div className="flex flex-wrap gap-1">
                     {fromDate && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 px-2 py-1 text-[10px] font-bold text-blue-300 border border-blue-500/20">
                         From: {fromDate}
-                        <button onClick={() => setFromDate("")} className="hover:text-white">✕</button>
+                        <button
+                          onClick={() => setFromDate("")}
+                          className="hover:text-white"
+                        >
+                          ✕
+                        </button>
                       </span>
                     )}
                     {toDate && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 px-2 py-1 text-[10px] font-bold text-blue-300 border border-blue-500/20">
                         To: {toDate}
-                        <button onClick={() => setToDate("")} className="hover:text-white">✕</button>
+                        <button
+                          onClick={() => setToDate("")}
+                          className="hover:text-white"
+                        >
+                          ✕
+                        </button>
                       </span>
                     )}
                   </div>
@@ -1363,9 +1649,13 @@ function BankSubmitPage() {
           {/* Stats Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-white/5">
             <div className="flex items-center gap-3">
-              <h2 className="text-lg font-black text-white">📊 Bank Submission Summary</h2>
+              <h2 className="text-lg font-black text-white">
+                📊 Bank Submission Summary
+              </h2>
               <span className="text-xs text-slate-400">
-                {viewMode === "factory" ? "Overview by factory" : "Overview by active department"}
+                {viewMode === "factory"
+                  ? "Overview by factory"
+                  : "Overview by active department"}
               </span>
             </div>
 
@@ -1374,11 +1664,17 @@ function BankSubmitPage() {
                 <span className="text-xs font-bold text-blue-300">
                   {viewMode === "factory" ? "Factories" : "Departments"}
                 </span>
-                <span className="text-sm font-black text-white">{totalDepartmentCount}</span>
+                <span className="text-sm font-black text-white">
+                  {totalDepartmentCount}
+                </span>
               </div>
               <div className="flex items-center gap-2 bg-emerald-500/10 rounded-full px-3 py-1 border border-emerald-500/20">
-                <span className="text-xs font-bold text-emerald-300">Pending</span>
-                <span className="text-sm font-black text-white">{totalPendingBank}</span>
+                <span className="text-xs font-bold text-emerald-300">
+                  Pending
+                </span>
+                <span className="text-sm font-black text-white">
+                  {totalPendingBank}
+                </span>
               </div>
             </div>
           </div>
@@ -1386,20 +1682,47 @@ function BankSubmitPage() {
           {/* Dashboard Cards - Compact */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4">
             <div className="rounded-xl bg-[#1c1733] border border-violet-500/25 px-3 py-2">
-              <div className="text-lg font-black text-violet-200">${formatNumber(displayTotalValue)}</div>
-              <div className="text-[10px] font-bold text-violet-300/60">Total Value</div>
+              <div className="text-lg font-black text-violet-200">
+                ${formatNumber(displayTotalValue)}
+              </div>
+              <div className="text-[10px] font-bold text-violet-300/60">
+                Total Value
+              </div>
             </div>
             <div className="rounded-xl bg-[#102a24] border border-emerald-500/25 px-3 py-2">
-              <div className="text-lg font-black text-emerald-200">{formatNumber(displaySubmittedCount)}</div>
-              <div className="text-[10px] font-bold text-emerald-300/60">Completed</div>
+              <div className="text-lg font-black text-emerald-200">
+                {formatNumber(displaySubmittedCount)}
+              </div>
+              <div className="text-[10px] font-bold text-emerald-300/60">
+                Completed
+              </div>
             </div>
-            <div className="rounded-xl bg-[#2b2112] border border-amber-500/25 px-3 py-2">
-              <div className="text-lg font-black text-amber-200">{formatNumber(displayPendingCount)}</div>
-              <div className="text-[10px] font-bold text-amber-300/60">Pending</div>
-            </div>
+            <button
+              type="button"
+              onClick={handleTotalPendingClick}
+              className="rounded-xl bg-[#2b2112] border border-amber-500/25 px-3 py-2 text-left transition hover:bg-[#3a2b16] hover:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              title="Click to view all pending bank-submission documents"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-lg font-black text-amber-200">
+                    {formatNumber(displayPendingCount)}
+                  </div>
+                  <div className="text-[10px] font-bold text-amber-300/60">
+                    Pending
+                  </div>
+                </div>
+
+                <span className="text-sm text-amber-300">↗</span>
+              </div>
+            </button>
             <div className="rounded-xl bg-[#132238] border border-blue-500/25 px-3 py-2">
-              <div className="text-lg font-black text-blue-200">{formatNumber(displayTotalFiles)}</div>
-              <div className="text-[10px] font-bold text-blue-300/60">Total Files</div>
+              <div className="text-lg font-black text-blue-200">
+                {formatNumber(displayTotalFiles)}
+              </div>
+              <div className="text-[10px] font-bold text-blue-300/60">
+                Total Files
+              </div>
             </div>
           </div>
 
@@ -1407,31 +1730,44 @@ function BankSubmitPage() {
           <div className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
               <h3 className="text-sm font-black text-white">
-                {viewMode === "factory" ? "Pending Bank Submission by Factory" : "Pending Bank Submission"}
+                {viewMode === "factory"
+                  ? "Pending Bank Submission by Factory"
+                  : "Pending Bank Submission"}
               </h3>
 
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">
+                  🔍
+                </span>
                 <input
                   value={searchText}
                   onChange={(e) => {
                     setSearchText(e.target.value);
                     setBankCurrentPage(1);
                   }}
-                  placeholder={viewMode === "factory" ? "Search factory..." : "Search department..."}
+                  placeholder={
+                    viewMode === "factory"
+                      ? "Search factory..."
+                      : "Search department..."
+                  }
                   className="w-full sm:w-56 rounded-xl bg-[#1e293b] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             {bankLoading ? (
-              <div className="py-8 text-center text-slate-400 text-sm">{hasActiveFilters ? "Applying date filter..." : "Loading pending bank submissions..."}</div>
+              <div className="py-8 text-center text-slate-400 text-sm">
+                {hasActiveFilters
+                  ? "Applying date filter..."
+                  : "Loading pending bank submissions..."}
+              </div>
             ) : bankCurrentPageData.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {bankCurrentPageData.map((item, index) => {
                     const pending = item?.pendingBank || 0;
-                    const accentColor = cardAccentColors[index % cardAccentColors.length];
+                    const accentColor =
+                      cardAccentColors[index % cardAccentColors.length];
                     const icon = cardIcons[index % cardIcons.length];
                     const statusMeta = getStatusMeta(pending);
 
@@ -1446,7 +1782,10 @@ function BankSubmitPage() {
                             ? "Click to view factory bank submission details"
                             : "Click to view details"
                         }
-                        style={{ borderLeftWidth: 3, borderLeftColor: accentColor }}
+                        style={{
+                          borderLeftWidth: 3,
+                          borderLeftColor: accentColor,
+                        }}
                       >
                         <div
                           className="absolute -top-6 -right-6 h-16 w-16 rounded-full opacity-20"
@@ -1522,12 +1861,30 @@ function BankSubmitPage() {
                     ? "No pending factory summary found"
                     : "No pending bank submission found"}
                 </h3>
-                <p className="text-xs text-slate-500 mt-1">All departments are up to date</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  All departments are up to date
+                </p>
               </div>
             )}
           </div>
         </section>
       </div>
+
+      {showAllPendingModal && (
+        <AllPendingBankModal
+          loading={allPendingLoading}
+          rows={filteredAllPendingRows}
+          totalPending={filteredAllPendingCount}
+          searchText={allPendingSearchText}
+          setSearchText={setAllPendingSearchText}
+          fromDate={fromDate}
+          toDate={toDate}
+          onClose={() => {
+            setShowAllPendingModal(false);
+            setAllPendingSearchText("");
+          }}
+        />
+      )}
 
       {showDetailsModal && (
         <DetailsModal
@@ -1554,6 +1911,153 @@ function BankSubmitPage() {
           getBankStatusClass={getBankStatusClass}
         />
       )}
+    </div>
+  );
+}
+
+function AllPendingBankModal({
+  loading,
+  rows,
+  totalPending,
+  searchText,
+  setSearchText,
+  fromDate,
+  toDate,
+  onClose,
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/85 p-3 backdrop-blur-sm">
+      <div className="flex h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0b1220] shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-lg">
+              🏦
+            </div>
+
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-black text-white">
+                All Pending Bank Submissions
+              </h3>
+              <p className="truncate text-[10px] text-slate-400">
+                {fromDate || toDate
+                  ? `${fromDate || "Start"} → ${toDate || "Today"}`
+                  : "All dates"}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-300 transition hover:bg-red-500/20"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 px-4 pt-3">
+          <div className="rounded-xl border border-blue-500/20 bg-[#132238] px-3 py-2">
+            <div className="text-lg font-black text-white">{rows.length}</div>
+            <div className="text-[10px] font-bold text-blue-300">
+              Buyer / Departments
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-amber-500/20 bg-[#2b2112] px-3 py-2">
+            <div className="text-lg font-black text-white">{totalPending}</div>
+            <div className="text-[10px] font-bold text-amber-300">
+              Pending Documents
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 py-3">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+              🔍
+            </span>
+
+            <input
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search factory, buyer, department or document..."
+              className="w-full rounded-xl border border-white/10 bg-[#111827] py-2 pl-8 pr-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="mx-4 mb-4 flex flex-1 items-center justify-center rounded-xl bg-[#111827] text-sm text-slate-400">
+            Loading all pending bank submissions...
+          </div>
+        ) : rows.length > 0 ? (
+          <div className="mx-4 mb-4 min-h-0 flex-1 overflow-y-auto rounded-xl border border-white/10 bg-[#0f172a]">
+            <div className="sticky top-0 z-10 grid grid-cols-[0.7fr_1.2fr_2fr_0.5fr] border-b border-white/10 bg-[#16213d] text-[10px] font-bold uppercase text-slate-300">
+              <div className="px-3 py-2">Factory</div>
+              <div className="px-3 py-2">Buyer / Department</div>
+              <div className="px-3 py-2">Pending Documents</div>
+              <div className="px-3 py-2 text-center">Count</div>
+            </div>
+
+            {rows.map((item, index) => (
+              <div
+                key={`${item?.id || index}-${index}`}
+                className={`grid grid-cols-[0.7fr_1.2fr_2fr_0.5fr] border-b border-white/5 ${
+                  index % 2 === 0 ? "bg-[#0f172a]" : "bg-[#111c31]"
+                }`}
+              >
+                <div className="px-3 py-3">
+                  <span className="inline-flex rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-xs font-black text-amber-300">
+                    {item?.factoryCode || "-"}
+                  </span>
+                </div>
+
+                <div className="min-w-0 px-3 py-3">
+                  <p className="truncate text-xs font-bold text-white">
+                    {item?.customerName || "-"}
+                  </p>
+                  <p className="mt-0.5 truncate text-[10px] font-bold text-blue-300">
+                    {item?.departmentName || item?.departmentCode || "-"}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 px-3 py-3">
+                  {item?.documentNumbers?.length ? (
+                    item.documentNumbers.map((documentNo) => (
+                      <span
+                        key={`${item?.id}-${documentNo}`}
+                        className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[10px] font-black text-cyan-300"
+                      >
+                        {documentNo}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-500">
+                      Document numbers not returned by API
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-center px-3 py-3">
+                  <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-black text-amber-300">
+                    {item?.pendingCount || 0}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mx-4 mb-4 flex flex-1 flex-col items-center justify-center rounded-xl bg-[#111827] text-center">
+            <div className="mb-2 text-3xl">📭</div>
+            <h3 className="text-sm font-bold text-white">
+              No pending bank submissions found
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Try clearing the search or changing the date range.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1672,7 +2176,9 @@ function DetailsModal({
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-white">{title}</h3>
               <p className="truncate text-[10px] text-slate-400">
-                {fromDate || toDate ? `${fromDate || "Start"} → ${toDate || "Today"}` : "All pending bank submission records"}
+                {fromDate || toDate
+                  ? `${fromDate || "Start"} → ${toDate || "Today"}`
+                  : "All pending bank submission records"}
               </p>
             </div>
           </div>
@@ -1693,16 +2199,22 @@ function DetailsModal({
           </div>
           <div className="rounded-xl bg-[#102a24] border border-emerald-500/20 px-3 py-2">
             <div className="text-xs font-bold text-emerald-200 truncate">
-              {fromDate || toDate ? `${fromDate || "Start"} - ${toDate || "Today"}` : "All dates"}
+              {fromDate || toDate
+                ? `${fromDate || "Start"} - ${toDate || "Today"}`
+                : "All dates"}
             </div>
-            <div className="text-[10px] font-bold text-emerald-300/60">Date range</div>
+            <div className="text-[10px] font-bold text-emerald-300/60">
+              Date range
+            </div>
           </div>
         </div>
 
         {totalRecords > 0 && (
           <div className="flex flex-col sm:flex-row gap-2 px-4 py-3">
             <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">
+                🔍
+              </span>
               <input
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
@@ -1738,7 +2250,9 @@ function DetailsModal({
             <div className="min-h-0 flex-1 overflow-y-auto">
               {data.map((item, index) => {
                 const status = getBankStatus(item?.bankSubmissionDate);
-                const statusClass = getBankStatusClass(item?.bankSubmissionDate);
+                const statusClass = getBankStatusClass(
+                  item?.bankSubmissionDate,
+                );
 
                 return (
                   <div
@@ -1760,7 +2274,8 @@ function DetailsModal({
                         {item?.departmentName || item?.departmentCode || "-"}
                       </p>
                       <p className="truncate text-[9px] font-bold text-slate-400">
-                        WO: {item?.workOrderNo || "-"} | Contract: {item?.contractNo || "-"}
+                        WO: {item?.workOrderNo || "-"} | Contract:{" "}
+                        {item?.contractNo || "-"}
                       </p>
                     </div>
 
@@ -1775,13 +2290,21 @@ function DetailsModal({
 
                     <div className="px-3 py-2">
                       <p className="text-xs font-bold text-white">
-                        {item?.noOfCarton ? Number(item.noOfCarton).toLocaleString() : "0"} ctn
+                        {item?.noOfCarton
+                          ? Number(item.noOfCarton).toLocaleString()
+                          : "0"}{" "}
+                        ctn
                       </p>
                       <p className="text-[10px] font-bold text-slate-300">
-                        {item?.noOfPcs ? Number(item.noOfPcs).toLocaleString() : "0"} pcs
+                        {item?.noOfPcs
+                          ? Number(item.noOfPcs).toLocaleString()
+                          : "0"}{" "}
+                        pcs
                       </p>
                       <p className="text-[10px] font-bold text-emerald-300 mt-0.5">
-                        {item?.totalValue ? Number(item.totalValue).toLocaleString() : "0"}
+                        {item?.totalValue
+                          ? Number(item.totalValue).toLocaleString()
+                          : "0"}
                       </p>
                     </div>
 
@@ -1814,8 +2337,12 @@ function DetailsModal({
         ) : (
           <div className="mx-4 mb-4 flex flex-1 flex-col items-center justify-center rounded-xl bg-[#111827] text-center">
             <div className="text-3xl mb-2">🏦</div>
-            <h3 className="text-sm font-bold text-white">No bank records found</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Try changing the selected date range.</p>
+            <h3 className="text-sm font-bold text-white">
+              No bank records found
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Try changing the selected date range.
+            </p>
           </div>
         )}
       </div>
