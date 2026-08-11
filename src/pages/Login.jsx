@@ -11,7 +11,7 @@ function Login() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const API_URL = "http://192.168.9.45:7000/api/Auth/login";
+  const API_URL = "http://192.168.11.39:7000/api/Auth/login";
 
   /*
     Load saved login credentials when the page opens.

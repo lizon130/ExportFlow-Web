@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-const API_BASE_URL = "http://192.168.9.45:7000";
+const API_BASE_URL = "http://192.168.11.39:7000";
 
 function BankSubmitPage() {
   const [refreshing, setRefreshing] = useState(false);
@@ -17,11 +17,24 @@ function BankSubmitPage() {
   const [bankCurrentPage, setBankCurrentPage] = useState(1);
   const [bankItemsPerPage, setBankItemsPerPage] = useState(20);
 
-  // dept = Department Wise, factory = Factory Wise
+  // dept = Department Wise, factory = Factory Wise, month = Month Wise
   const [viewMode, setViewMode] = useState("dept");
 
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const getTodayDisplayDate = () => {
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, "0");
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const yyyy = today.getFullYear();
+
+    return `${dd}-${mm}-${yyyy}`;
+  };
+
+  // Default date filter: 01-Jan-2026 through today
+  const DEFAULT_FROM_DATE = "01-01-2026";
+  const DEFAULT_TO_DATE = getTodayDisplayDate();
+
+  const [fromDate, setFromDate] = useState(DEFAULT_FROM_DATE);
+  const [toDate, setToDate] = useState(DEFAULT_TO_DATE);
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [modalBankData, setModalBankData] = useState([]);
@@ -646,6 +659,32 @@ function BankSubmitPage() {
     return filterBySelectedDates(detailRows);
   };
 
+  const fetchDateFilteredCompletedBankCount = async (accessOverride) => {
+    const endpoint = addDateParamsToEndpoint(
+      "/api/Export/Get-Completed-Bank-Submission-Date-Count",
+    );
+
+    const completedRows = await fetchRowsForAssignedDepartments(
+      endpoint,
+      accessOverride,
+      [
+        "completedBankSubmissionDateCount",
+        "completedBank",
+        "totalPackagingCount",
+      ],
+    );
+
+    return normalizeArray(completedRows).reduce(
+      (sum, item) =>
+        sum +
+        (getNumber(item?.completedBankSubmissionDateCount) ||
+          getNumber(item?.completedBank) ||
+          getNumber(item?.totalPackagingCount) ||
+          0),
+      0,
+    );
+  };
+
   const calculateDateFilteredSummaryStats = (rows) => {
     const filteredRows = Array.isArray(rows) ? rows : [];
 
@@ -677,9 +716,33 @@ function BankSubmitPage() {
         : await loadDepartmentAccess();
 
       if (fromDate || toDate) {
-        const filteredRows =
-          await fetchDateFilteredBankRowsForDepartments(activeAccess);
-        setSummaryStats(calculateDateFilteredSummaryStats(filteredRows));
+        /*
+          IMPORTANT FIX:
+          The Completed card must use the completed-count API with the
+          selected date range.
+
+          Example:
+          /api/Export/Get-Completed-Bank-Submission-Date-Count
+            ?fromDate=2026-01-01
+            &toDate=2026-12-31
+
+          Previously this branch skipped that API completely and tried to
+          calculate completed rows from the detail-list API, which could
+          produce 0 even when completedBankSubmissionDateCount was 8083.
+        */
+        const [filteredRows, completedCount] = await Promise.all([
+          fetchDateFilteredBankRowsForDepartments(activeAccess),
+          fetchDateFilteredCompletedBankCount(activeAccess),
+        ]);
+
+        const filteredStats = calculateDateFilteredSummaryStats(filteredRows);
+
+        setSummaryStats({
+          ...filteredStats,
+          totalSubmitted: completedCount,
+          totalFiles: filteredStats.totalPending + completedCount,
+        });
+
         return;
       }
 
@@ -790,6 +853,129 @@ function BankSubmitPage() {
     return Array.from(grouped.values());
   };
 
+  const getMonthOrder = (item) => {
+    const monthNo = Number(item?.exFacMonthNo || 0);
+
+    if (monthNo >= 1 && monthNo <= 12) return monthNo;
+
+    const monthName = normalizeText(item?.exFacMonthName);
+
+    const monthMap = {
+      january: 1,
+      february: 2,
+      march: 3,
+      april: 4,
+      may: 5,
+      june: 6,
+      july: 7,
+      august: 8,
+      september: 9,
+      october: 10,
+      november: 11,
+      december: 12,
+    };
+
+    return monthMap[monthName] || 99;
+  };
+
+  const getMonthNameFromDate = (dateValue) => {
+    if (!dateValue) return "";
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return date.toLocaleString("en-US", { month: "long" });
+  };
+
+  const getMonthNumberFromDate = (dateValue) => {
+    if (!dateValue) return "";
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return String(date.getMonth() + 1);
+  };
+
+  const buildMonthWiseBankSummary = (rows) => {
+    const monthMap = new Map();
+
+    removeDuplicateBankRows(rows)
+      .filter((row) => !row?.bankSubmissionDate)
+      .forEach((item, index) => {
+        const monthName =
+          String(item?.exFacMonthName || "").trim() ||
+          getMonthNameFromDate(item?.expDate) ||
+          getMonthNameFromDate(item?.invoiceDate) ||
+          getMonthNameFromDate(item?.shippingDate) ||
+          getMonthNameFromDate(item?.blDate) ||
+          getMonthNameFromDate(item?.exFacDate) ||
+          "Unknown Month";
+
+        const monthNo =
+          String(item?.exFacMonthNo || "").trim() ||
+          getMonthNumberFromDate(item?.expDate) ||
+          getMonthNumberFromDate(item?.invoiceDate) ||
+          getMonthNumberFromDate(item?.shippingDate) ||
+          getMonthNumberFromDate(item?.blDate) ||
+          getMonthNumberFromDate(item?.exFacDate) ||
+          "";
+
+        const key =
+          normalizeText(monthName) ||
+          normalizeText(monthNo) ||
+          `month-${index}`;
+
+        if (!monthMap.has(key)) {
+          monthMap.set(key, {
+            ...item,
+            isMonthWise: true,
+            exFacMonthName: monthName,
+            exFacMonthNo: monthNo,
+            customerName: monthName,
+            departmentName: "Month Wise Summary",
+            departmentCode: monthNo,
+            pendingBankSubmissionDateCount: 0,
+            pendingBank: 0,
+            totalValue: 0,
+            documentNumbers: [],
+            sourceRows: [],
+          });
+        }
+
+        const current = monthMap.get(key);
+
+        const documentNo = String(
+          item?.expDocumentNo ||
+            item?.exportDocumentNo ||
+            item?.packagingListNo ||
+            item?.exportShippingBillNumber ||
+            ""
+        ).trim();
+
+        if (
+          documentNo &&
+          documentNo !== "0" &&
+          !current.documentNumbers.some(
+            (value) => normalizeText(value) === normalizeText(documentNo)
+          )
+        ) {
+          current.documentNumbers.push(documentNo);
+        }
+
+        current.sourceRows.push(item);
+        current.pendingBankSubmissionDateCount =
+          current.documentNumbers.length || current.sourceRows.length;
+        current.pendingBank = current.pendingBankSubmissionDateCount;
+        current.totalValue += getNumber(
+          item?.totalValue || item?.totalExportValue || item?.pendingValue,
+        );
+      });
+
+    return Array.from(monthMap.values())
+      .filter((item) => getNumber(item?.pendingBank) > 0)
+      .sort((a, b) => getMonthOrder(a) - getMonthOrder(b));
+  };
+
   const getFactoryDisplayName = (item) => {
     const factoryCode = String(item?.factoryCode || "").trim();
     const factoryName = String(item?.factoryName || "").trim();
@@ -863,7 +1049,7 @@ function BankSubmitPage() {
 
       const dataArray =
         fromDate || toDate
-          ? viewMode === "factory"
+          ? viewMode === "factory" || viewMode === "month"
             ? (
                 await fetchDateFilteredBankRowsForDepartments(activeAccess)
               ).filter((row) => !row?.bankSubmissionDate)
@@ -881,7 +1067,19 @@ function BankSubmitPage() {
             );
 
       const pendingBankDepartments =
-        viewMode === "factory"
+        viewMode === "month"
+          ? buildMonthWiseBankSummary(
+              fromDate || toDate
+                ? dataArray
+                : (
+                    await fetchRowsForAssignedDepartments(
+                      "/api/Export/Get-By-Dept-Bank-Submission-Date-List",
+                      activeAccess,
+                      ["totalValue", "noOfPcs", "noOfCarton"],
+                    )
+                  ).filter((row) => !row?.bankSubmissionDate)
+            )
+          : viewMode === "factory"
           ? buildFactoryWiseBankSummary(dataArray)
           : dataArray
               .filter(
@@ -940,6 +1138,9 @@ function BankSubmitPage() {
       item?.shippingDate ||
       item?.shipDate ||
       item?.blDate ||
+      item?.expDate ||
+      item?.invoiceDate ||
+      item?.shipmentDate ||
       item?.exFacDate ||
       item?.exFactoryDate ||
       item?.createdDate ||
@@ -1027,6 +1228,81 @@ function BankSubmitPage() {
     }
   };
 
+  const fetchModalMonthBankData = async (item) => {
+    const monthName =
+      item?.exFacMonthName ||
+      getMonthNameFromDate(item?.expDate) ||
+      getMonthNameFromDate(item?.invoiceDate) ||
+      "Unknown Month";
+
+    const monthNo = String(item?.exFacMonthNo || "").trim();
+
+    setModalLoading(true);
+    setModalSearchText("");
+    setModalCurrentPage(1);
+    setModalDepartmentName(`${monthName} • Month Bank Submission Pending Details`);
+    setShowDetailsModal(true);
+
+    try {
+      const activeAccess = departmentAccess?.loaded
+        ? departmentAccess
+        : await loadDepartmentAccess();
+
+      let rows = normalizeArray(item?.sourceRows);
+
+      if (!rows.length) {
+        rows = await fetchRowsForAssignedDepartments(
+          addDateParamsToEndpoint(
+            "/api/Export/Get-By-Dept-Bank-Submission-Date-List",
+          ),
+          activeAccess,
+          ["totalValue", "noOfPcs", "noOfCarton"],
+        );
+      }
+
+      const monthRows = removeDuplicateBankRows(rows).filter((row) => {
+        if (row?.bankSubmissionDate) return false;
+
+        const rowMonthName = normalizeText(
+          row?.exFacMonthName ||
+            getMonthNameFromDate(row?.expDate) ||
+            getMonthNameFromDate(row?.invoiceDate) ||
+            getMonthNameFromDate(row?.shippingDate) ||
+            getMonthNameFromDate(row?.blDate) ||
+            getMonthNameFromDate(row?.exFacDate),
+        );
+
+        const rowMonthNo = String(
+          row?.exFacMonthNo ||
+            getMonthNumberFromDate(row?.expDate) ||
+            getMonthNumberFromDate(row?.invoiceDate) ||
+            getMonthNumberFromDate(row?.shippingDate) ||
+            getMonthNumberFromDate(row?.blDate) ||
+            getMonthNumberFromDate(row?.exFacDate) ||
+            "",
+        ).trim();
+
+        if (monthNo && rowMonthNo) {
+          return rowMonthNo === monthNo;
+        }
+
+        return rowMonthName === normalizeText(monthName);
+      });
+
+      const dateFilteredData = filterBySelectedDates(monthRows);
+
+      setModalBankData(dateFilteredData);
+      setModalFilteredData(dateFilteredData);
+    } catch (fetchError) {
+      console.error("Month bank modal fetch error:", fetchError);
+      setModalBankData([]);
+      setModalFilteredData([]);
+      setModalCurrentPage(1);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   const fetchModalFactoryBankData = async (item) => {
     const factoryCode = item?.factoryCode || item?.departmentCode || "";
     const normalizedFactoryCode = normalizeText(factoryCode);
@@ -1072,6 +1348,11 @@ function BankSubmitPage() {
   };
 
   const handleCardClick = async (item) => {
+    if (viewMode === "month" || item?.isMonthWise) {
+      await fetchModalMonthBankData(item);
+      return;
+    }
+
     if (viewMode === "factory" || item?.isFactoryWise) {
       await fetchModalFactoryBankData(item);
       return;
@@ -1356,7 +1637,9 @@ function BankSubmitPage() {
         item?.departmentName?.toLowerCase().includes(key) ||
         item?.departmentCode?.toLowerCase().includes(key) ||
         item?.factoryCode?.toLowerCase().includes(key) ||
-        item?.factoryName?.toLowerCase().includes(key),
+        item?.factoryName?.toLowerCase().includes(key) ||
+        item?.exFacMonthName?.toLowerCase().includes(key) ||
+        item?.exFacMonthNo?.toString().toLowerCase().includes(key),
     );
   }, [bankSafeData, searchText]);
 
@@ -1427,6 +1710,15 @@ function BankSubmitPage() {
   const cardIcons = ["🏦", "📦", "🏬", "📄", "🛒", "🏭", "🧾", "💳"];
 
   const getDisplayName = (item) => {
+    if (viewMode === "month" || item?.isMonthWise) {
+      return (
+        item?.exFacMonthName ||
+        getMonthNameFromDate(item?.expDate) ||
+        getMonthNameFromDate(item?.invoiceDate) ||
+        "Unknown Month"
+      );
+    }
+
     if (viewMode === "factory" || item?.isFactoryWise) {
       return (
         item?.factoryCode ||
@@ -1440,6 +1732,16 @@ function BankSubmitPage() {
   };
 
   const getDepartmentSubText = (item) => {
+    if (viewMode === "month" || item?.isMonthWise) {
+      const monthNo =
+        item?.exFacMonthNo ||
+        getMonthNumberFromDate(item?.expDate) ||
+        getMonthNumberFromDate(item?.invoiceDate) ||
+        "-";
+
+      return `Month ${monthNo}`;
+    }
+
     if (viewMode === "factory" || item?.isFactoryWise) {
       return item?.factoryName || "Factory Wise Summary";
     }
@@ -1448,6 +1750,14 @@ function BankSubmitPage() {
   };
 
   const getFullDisplayName = (item) => {
+    if (viewMode === "month" || item?.isMonthWise) {
+      return (
+        item?.exFacMonthName ||
+        getMonthNameFromDate(item?.expDate) ||
+        "Unknown Month"
+      );
+    }
+
     if (viewMode === "factory" || item?.isFactoryWise) {
       return getFactoryDisplayName(item);
     }
@@ -1554,6 +1864,7 @@ function BankSubmitPage() {
               >
                 <option value="dept">Department Wise</option>
                 <option value="factory">Factory Wise</option>
+                <option value="month">Month Wise</option>
               </select>
             </div>
 
@@ -1600,15 +1911,15 @@ function BankSubmitPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setFromDate("");
-                      setToDate("");
+                      setFromDate(DEFAULT_FROM_DATE);
+                      setToDate(getTodayDisplayDate());
                     }}
                     className="rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20 transition"
                   >
                     ✕ Reset
                   </button>
 
-                  <div className="flex flex-wrap gap-1">
+                  {/* <div className="flex flex-wrap gap-1">
                     {fromDate && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 px-2 py-1 text-[10px] font-bold text-blue-300 border border-blue-500/20">
                         From: {fromDate}
@@ -1631,7 +1942,7 @@ function BankSubmitPage() {
                         </button>
                       </span>
                     )}
-                  </div>
+                  </div> */}
                 </>
               )}
             </div>
@@ -1655,6 +1966,8 @@ function BankSubmitPage() {
               <span className="text-xs text-slate-400">
                 {viewMode === "factory"
                   ? "Overview by factory"
+                  : viewMode === "month"
+                  ? "Overview by month"
                   : "Overview by active department"}
               </span>
             </div>
@@ -1662,7 +1975,11 @@ function BankSubmitPage() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-blue-500/10 rounded-full px-3 py-1 border border-blue-500/20">
                 <span className="text-xs font-bold text-blue-300">
-                  {viewMode === "factory" ? "Factories" : "Departments"}
+                  {viewMode === "factory"
+                    ? "Factories"
+                    : viewMode === "month"
+                    ? "Months"
+                    : "Departments"}
                 </span>
                 <span className="text-sm font-black text-white">
                   {totalDepartmentCount}
@@ -1732,6 +2049,8 @@ function BankSubmitPage() {
               <h3 className="text-sm font-black text-white">
                 {viewMode === "factory"
                   ? "Pending Bank Submission by Factory"
+                  : viewMode === "month"
+                  ? "Pending Bank Submission by Month"
                   : "Pending Bank Submission"}
               </h3>
 
@@ -1748,6 +2067,8 @@ function BankSubmitPage() {
                   placeholder={
                     viewMode === "factory"
                       ? "Search factory..."
+                      : viewMode === "month"
+                      ? "Search month..."
                       : "Search department..."
                   }
                   className="w-full sm:w-56 rounded-xl bg-[#1e293b] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1780,6 +2101,8 @@ function BankSubmitPage() {
                         title={
                           viewMode === "factory"
                             ? "Click to view factory bank submission details"
+                            : viewMode === "month"
+                            ? "Click to view month bank submission details"
                             : "Click to view details"
                         }
                         style={{
@@ -1859,6 +2182,8 @@ function BankSubmitPage() {
                 <h3 className="text-sm font-bold text-slate-200">
                   {viewMode === "factory"
                     ? "No pending factory summary found"
+                    : viewMode === "month"
+                    ? "No pending month summary found"
                     : "No pending bank submission found"}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
@@ -2171,7 +2496,11 @@ function DetailsModal({
         <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20 text-base flex-shrink-0">
-              {title?.toLowerCase().includes("factory") ? "🏭" : "🏦"}
+              {title?.toLowerCase().includes("factory")
+                ? "🏭"
+                : title?.toLowerCase().includes("month")
+                ? "🗓️"
+                : "🏦"}
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-white">{title}</h3>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-const API_BASE_URL = "http://192.168.9.45:7000";
+const API_BASE_URL = "http://192.168.11.39:7000";
 
 function ExportDocsPage() {
   const [loading, setLoading] = useState(false);
@@ -13,11 +13,24 @@ function ExportDocsPage() {
   const [buyerCurrentPage, setBuyerCurrentPage] = useState(1);
   const [buyerItemsPerPage, setBuyerItemsPerPage] = useState(20);
 
-  // dept = Department Wise, factory = Factory Wise
+  // dept = Department Wise, factory = Factory Wise, month = Month Wise
   const [viewMode, setViewMode] = useState("dept");
 
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const getTodayDisplayDate = () => {
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, "0");
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const yyyy = today.getFullYear();
+
+    return `${dd}-${mm}-${yyyy}`;
+  };
+
+  // Default filter: 01-Jan-2026 through today
+  const DEFAULT_FROM_DATE = "01-01-2026";
+  const DEFAULT_TO_DATE = getTodayDisplayDate();
+
+  const [fromDate, setFromDate] = useState(DEFAULT_FROM_DATE);
+  const [toDate, setToDate] = useState(DEFAULT_TO_DATE);
 
   const [departmentAccess, setDepartmentAccess] = useState({
     loaded: false,
@@ -688,6 +701,126 @@ function ExportDocsPage() {
     return factoryCode || factoryName || "Unknown Factory";
   };
 
+  const getMonthOrder = (item) => {
+    const monthNo = Number(item?.exFacMonthNo || 0);
+
+    if (monthNo >= 1 && monthNo <= 12) return monthNo;
+
+    const monthName = normalizeText(item?.exFacMonthName);
+
+    const monthMap = {
+      january: 1,
+      february: 2,
+      march: 3,
+      april: 4,
+      may: 5,
+      june: 6,
+      july: 7,
+      august: 8,
+      september: 9,
+      october: 10,
+      november: 11,
+      december: 12,
+    };
+
+    return monthMap[monthName] || 99;
+  };
+
+  const getMonthNameFromDate = (dateValue) => {
+    if (!dateValue) return "";
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return date.toLocaleString("en-US", { month: "long" });
+  };
+
+  const getMonthNumberFromDate = (dateValue) => {
+    if (!dateValue) return "";
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return String(date.getMonth() + 1);
+  };
+
+  const buildPendingMonthsFromActualDocs = async (
+    accessOverride = departmentAccess
+  ) => {
+    const rows = await fetchRowsFromEndpointByDepName(
+      "/api/Export/Get-By-Dept-Export-Docment-List",
+      accessOverride
+    );
+
+    const dateFilteredRows = filterBySelectedDates(
+      removeDuplicateExportDocuments(rows)
+    );
+
+    const monthMap = new Map();
+
+    dateFilteredRows.forEach((item, index) => {
+      const monthName =
+        String(item?.exFacMonthName || "").trim() ||
+        getMonthNameFromDate(item?.exFacDate) ||
+        "Unknown Month";
+
+      const monthNo =
+        String(item?.exFacMonthNo || "").trim() ||
+        getMonthNumberFromDate(item?.exFacDate) ||
+        "";
+
+      const key =
+        normalizeText(monthName) ||
+        normalizeText(monthNo) ||
+        `month-${index}`;
+
+      if (!monthMap.has(key)) {
+        monthMap.set(key, {
+          ...item,
+          isMonthWise: true,
+          exFacMonthName: monthName,
+          exFacMonthNo: monthNo,
+          customerName: monthName,
+          departmentName: "Month Wise Summary",
+          departmentCode: monthNo,
+          pendingExpDocument: 0,
+          pendingExportCount: 0,
+          totalValue: 0,
+          packagingListNos: [],
+          sourceRows: [],
+        });
+      }
+
+      const current = monthMap.get(key);
+
+      const packagingListNo = String(
+        item?.packagingListNo ?? item?.packingListNo ?? ""
+      ).trim();
+
+      if (
+        packagingListNo &&
+        packagingListNo !== "0" &&
+        !current.packagingListNos.some(
+          (value) => normalizeText(value) === normalizeText(packagingListNo)
+        )
+      ) {
+        current.packagingListNos.push(packagingListNo);
+      }
+
+      current.sourceRows.push(item);
+      current.pendingExpDocument =
+        current.packagingListNos.length || current.sourceRows.length;
+      current.pendingExportCount = current.pendingExpDocument;
+      current.totalValue += Number(
+        item?.totalValue || item?.totalExportValue || item?.pendingValue || 0
+      );
+    });
+
+    return Array.from(monthMap.values())
+      .filter((item) => Number(item?.pendingExpDocument || 0) > 0)
+      .sort((a, b) => getMonthOrder(a) - getMonthOrder(b));
+  };
+
   const buildPendingFactoriesFromActualDocs = async (
     dataArray,
     accessOverride = departmentAccess
@@ -919,7 +1052,9 @@ function ExportDocsPage() {
       );
 
       const pendingData =
-        viewMode === "factory"
+        viewMode === "month"
+          ? await buildPendingMonthsFromActualDocs(activeAccess)
+          : viewMode === "factory"
           ? await buildPendingFactoriesFromActualDocs(dataArray, activeAccess)
           : await buildPendingDepartmentsFromActualDocs(dataArray, activeAccess);
 
@@ -999,7 +1134,9 @@ function ExportDocsPage() {
         item.departmentCode?.toLowerCase().includes(searchLower) ||
         item.departmentName?.toLowerCase().includes(searchLower) ||
         item.factoryCode?.toLowerCase().includes(searchLower) ||
-        item.factoryName?.toLowerCase().includes(searchLower)
+        item.factoryName?.toLowerCase().includes(searchLower) ||
+        item.exFacMonthName?.toLowerCase().includes(searchLower) ||
+        item.exFacMonthNo?.toString().toLowerCase().includes(searchLower)
     );
 
     setFilteredBuyerData(filtered);
@@ -1018,8 +1155,8 @@ function ExportDocsPage() {
   };
 
   const handleReset = () => {
-    setFromDate("");
-    setToDate("");
+    setFromDate(DEFAULT_FROM_DATE);
+    setToDate(getTodayDisplayDate());
     setBuyerSearchText("");
     setBuyerCurrentPage(1);
 
@@ -1094,7 +1231,74 @@ function ExportDocsPage() {
     }
   };
 
+  const fetchModalMonthExportData = async (
+    item,
+    accessOverride = departmentAccess
+  ) => {
+    setModalLoading(true);
+
+    try {
+      const activeAccess = accessOverride?.loaded
+        ? accessOverride
+        : await loadDepartmentAccess();
+
+      let rows = normalizeArray(item?.sourceRows);
+
+      if (!rows.length) {
+        rows = await fetchRowsFromEndpointByDepName(
+          "/api/Export/Get-By-Dept-Export-Docment-List",
+          activeAccess
+        );
+      }
+
+      const selectedMonthName = normalizeText(item?.exFacMonthName);
+      const selectedMonthNo = String(item?.exFacMonthNo || "").trim();
+
+      const monthRows = removeDuplicateExportDocuments(rows).filter((row) => {
+        const rowMonthName = normalizeText(
+          row?.exFacMonthName || getMonthNameFromDate(row?.exFacDate)
+        );
+
+        const rowMonthNo = String(
+          row?.exFacMonthNo || getMonthNumberFromDate(row?.exFacDate) || ""
+        ).trim();
+
+        if (selectedMonthNo && rowMonthNo) {
+          return rowMonthNo === selectedMonthNo;
+        }
+
+        return rowMonthName === selectedMonthName;
+      });
+
+      const dateFilteredArray = filterBySelectedDates(monthRows);
+
+      setModalExportData(dateFilteredArray);
+      setModalFilteredData(dateFilteredArray);
+      setModalCurrentPage(1);
+      setModalSearchText("");
+    } catch (error) {
+      console.error("Fetch month modal error:", error);
+      setModalExportData([]);
+      setModalFilteredData([]);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   const handleBadgeClick = async (item) => {
+    if (viewMode === "month" || item?.isMonthWise) {
+      const monthName =
+        item?.exFacMonthName ||
+        getMonthNameFromDate(item?.exFacDate) ||
+        "Unknown Month";
+
+      setModalDepartmentName(`${monthName} • Month Pending Details`);
+      setShowDetailsModal(true);
+
+      await fetchModalMonthExportData(item, departmentAccess);
+      return;
+    }
+
     if (viewMode === "factory" || item?.isFactoryWise) {
       const factoryCode = item?.factoryCode || item?.departmentCode || "";
       const displayTitle = `${factoryCode || "Unknown Factory"} • Factory Pending Details`;
@@ -1278,6 +1482,14 @@ function ExportDocsPage() {
   const cardIcons = ["👥", "👔", "🏬", "👜", "🛒", "📦", "📑", "🏭"];
 
   const getDisplayName = (item) => {
+    if (viewMode === "month" || item?.isMonthWise) {
+      return (
+        item?.exFacMonthName ||
+        getMonthNameFromDate(item?.exFacDate) ||
+        "Unknown Month"
+      );
+    }
+
     if (viewMode === "factory" || item?.isFactoryWise) {
       return (
         item?.factoryCode ||
@@ -1291,6 +1503,15 @@ function ExportDocsPage() {
   };
 
   const getDepartmentSubText = (item) => {
+    if (viewMode === "month" || item?.isMonthWise) {
+      const monthNo =
+        item?.exFacMonthNo ||
+        getMonthNumberFromDate(item?.exFacDate) ||
+        "-";
+
+      return `Month ${monthNo}`;
+    }
+
     if (viewMode === "factory" || item?.isFactoryWise) {
       return item?.factoryName || "Factory Wise Summary";
     }
@@ -1399,6 +1620,7 @@ function ExportDocsPage() {
               >
                 <option value="dept">Department Wise</option>
                 <option value="factory">Factory Wise</option>
+                <option value="month">Month Wise</option>
               </select>
             </div>
 
@@ -1437,7 +1659,7 @@ function ExportDocsPage() {
                     ✕ Reset
                   </button>
                   
-                  <div className="flex flex-wrap gap-1">
+                  {/* <div className="flex flex-wrap gap-1">
                     {fromDate && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 px-2 py-1 text-[10px] font-bold text-blue-300 border border-blue-500/20">
                         From: {fromDate}
@@ -1450,7 +1672,7 @@ function ExportDocsPage() {
                         <button onClick={() => setToDate("")} className="hover:text-white">✕</button>
                       </span>
                     )}
-                  </div>
+                  </div> */}
                 </>
               )}
             </div>
@@ -1477,7 +1699,11 @@ function ExportDocsPage() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-blue-500/10 rounded-full px-3 py-1 border border-blue-500/20">
                 <span className="text-xs font-bold text-blue-300">
-                  {viewMode === "factory" ? "Factories" : "Departments"}
+                  {viewMode === "factory"
+                    ? "Factories"
+                    : viewMode === "month"
+                    ? "Months"
+                    : "Departments"}
                 </span>
                 <span className="text-sm font-black text-white">{totalBuyerCount}</span>
               </div>
@@ -1533,7 +1759,11 @@ function ExportDocsPage() {
           <div className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
               <h3 className="text-sm font-black text-white">
-                {viewMode === "factory" ? "Pending by Factory" : "Pending by Department"}
+                {viewMode === "factory"
+                  ? "Pending by Factory"
+                  : viewMode === "month"
+                  ? "Pending by Month"
+                  : "Pending by Department"}
               </h3>
 
               <div className="relative">
@@ -1541,7 +1771,13 @@ function ExportDocsPage() {
                 <input
                   value={buyerSearchText}
                   onChange={(e) => handleBuyerSearch(e.target.value)}
-                  placeholder={viewMode === "factory" ? "Search factory..." : "Search department..."}
+                  placeholder={
+                    viewMode === "factory"
+                      ? "Search factory..."
+                      : viewMode === "month"
+                      ? "Search month..."
+                      : "Search department..."
+                  }
                   className="w-full sm:w-56 rounded-xl bg-[#1e293b] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -1568,6 +1804,8 @@ function ExportDocsPage() {
                         title={
                           viewMode === "factory"
                             ? "Click to view factory pending details"
+                            : viewMode === "month"
+                            ? "Click to view month pending details"
                             : "Click to view details"
                         }
                         style={{ borderLeftWidth: 3, borderLeftColor: accentColor }}
@@ -1644,6 +1882,8 @@ function ExportDocsPage() {
                 <h3 className="text-sm font-bold text-slate-200">
                   {viewMode === "factory"
                     ? "No pending factory summary found"
+                    : viewMode === "month"
+                    ? "No pending month summary found"
                     : "No pending documents found"}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
@@ -1961,7 +2201,11 @@ function DetailsModal({
         <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20 text-base flex-shrink-0">
-              {title?.toLowerCase().includes("factory") ? "🏭" : "📄"}
+              {title?.toLowerCase().includes("factory")
+                ? "🏭"
+                : title?.toLowerCase().includes("month")
+                ? "🗓️"
+                : "📄"}
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-white">{title}</h3>

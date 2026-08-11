@@ -11,7 +11,27 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const API_BASE_URL = "http://192.168.9.45:7000";
+const API_BASE_URL = "http://192.168.11.39:7000";
+
+const formatDateForApi = (date) => {
+  if (!date) return "";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}T00:00:00Z`;
+};
+
+const formatDateForInput = (date) => {
+  if (!date) return "";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 function Dashboard() {
   const isMounted = useRef(true);
@@ -19,6 +39,14 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("");
+
+  const defaultFromDate = new Date(2026, 0, 1);
+  const defaultToDate = new Date();
+
+  const [fromDate, setFromDate] = useState(formatDateForInput(defaultFromDate));
+  const [toDate, setToDate] = useState(formatDateForInput(defaultToDate));
+  const [tempFromDate, setTempFromDate] = useState(formatDateForInput(defaultFromDate));
+  const [tempToDate, setTempToDate] = useState(formatDateForInput(defaultToDate));
 
   const [exportStats, setExportStats] = useState({
     totalPackagingCount: 0,
@@ -210,6 +238,23 @@ function Dashboard() {
     return `${endpoint}${separator}depName=${encodeURIComponent(depName)}`;
   };
 
+  const buildEndpointWithDates = (endpoint, from, to) => {
+    let result = endpoint;
+    const fromApi = formatDateForApi(from);
+    const toApi = formatDateForApi(to);
+
+    if (fromApi) {
+      const sep = result.includes("?") ? "&" : "?";
+      result = `${result}${sep}fromDate=${encodeURIComponent(fromApi)}`;
+    }
+    if (toApi) {
+      const sep = result.includes("?") ? "&" : "?";
+      result = `${result}${sep}toDate=${encodeURIComponent(toApi)}`;
+    }
+
+    return result;
+  };
+
   const apiGet = async (endpoint, headers = getAuthHeaders()) => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: "GET",
@@ -239,16 +284,19 @@ function Dashboard() {
   const fetchEndpointRowsByDepartment = async (
     endpoint,
     headers,
-    userProfileData
+    userProfileData,
+    dateFrom,
+    dateTo
   ) => {
     const departmentApiNames = getDepartmentApiNames(userProfileData);
+    const endpointWithDates = buildEndpointWithDates(endpoint, dateFrom, dateTo);
 
     if (departmentApiNames.length) {
       const departmentResponses = await Promise.all(
         departmentApiNames.map(async (depName) => {
           try {
             const data = await apiGet(
-              buildEndpointWithDepName(endpoint, depName),
+              buildEndpointWithDepName(endpointWithDates, depName),
               headers
             );
 
@@ -266,7 +314,7 @@ function Dashboard() {
       return departmentResponses.flat();
     }
 
-    const data = await apiGet(endpoint, headers);
+    const data = await apiGet(endpointWithDates, headers);
     return normalizeArray(data);
   };
 
@@ -287,24 +335,30 @@ function Dashboard() {
     }
   }, []);
 
-  const fetchExportDocsStats = useCallback(async (userProfileData = null) => {
+  const fetchExportDocsStats = useCallback(async (userProfileData = null, dateFrom = null, dateTo = null) => {
     const headers = getAuthHeaders();
 
     const [packingRows, completedRows, pendingRows] = await Promise.all([
       fetchEndpointRowsByDepartment(
         "/api/Export/Get-Packing-No-Total-count",
         headers,
-        userProfileData
+        userProfileData,
+        dateFrom,
+        dateTo
       ),
       fetchEndpointRowsByDepartment(
         "/api/Export/Get-Completed-Export-Document-Count",
         headers,
-        userProfileData
+        userProfileData,
+        dateFrom,
+        dateTo
       ),
       fetchEndpointRowsByDepartment(
         "/api/Export/Get-Pending-Export-Document-Count",
         headers,
-        userProfileData
+        userProfileData,
+        dateFrom,
+        dateTo
       ),
     ]);
 
@@ -335,21 +389,25 @@ function Dashboard() {
         shipmentValue,
       }));
     }
-  }, []);
+  }, [fromDate, toDate]);
 
-  const fetchBLDateStats = useCallback(async (userProfileData = null) => {
+  const fetchBLDateStats = useCallback(async (userProfileData = null, dateFrom = null, dateTo = null) => {
     const headers = getAuthHeaders();
 
     const [completedRows, pendingRows] = await Promise.all([
       fetchEndpointRowsByDepartment(
         "/api/Export/Get-Completed-BL-Date-Count",
         headers,
-        userProfileData
+        userProfileData,
+        dateFrom,
+        dateTo
       ),
       fetchEndpointRowsByDepartment(
         "/api/Export/Get-Pending-BL-Date-Count",
         headers,
-        userProfileData
+        userProfileData,
+        dateFrom,
+        dateTo
       ),
     ]);
 
@@ -371,21 +429,25 @@ function Dashboard() {
         totalBLDateCount: completedCount + pendingCount,
       }));
     }
-  }, []);
+  }, [fromDate, toDate]);
 
-  const fetchShippingStats = useCallback(async (userProfileData = null) => {
+  const fetchShippingStats = useCallback(async (userProfileData = null, dateFrom = null, dateTo = null) => {
     const headers = getAuthHeaders();
 
     const [completedRows, pendingRows] = await Promise.all([
       fetchEndpointRowsByDepartment(
         "/api/Export/Get-Completed-Export-Shipping-Date-Count",
         headers,
-        userProfileData
+        userProfileData,
+        dateFrom,
+        dateTo
       ),
       fetchEndpointRowsByDepartment(
         "/api/Export/Get-Pending-Shipping-Date-Count",
         headers,
-        userProfileData
+        userProfileData,
+        dateFrom,
+        dateTo
       ),
     ]);
 
@@ -407,21 +469,25 @@ function Dashboard() {
         totalShippingDateCount: completedCount + pendingCount,
       }));
     }
-  }, []);
+  }, [fromDate, toDate]);
 
-  const fetchBankSubmitStats = useCallback(async (userProfileData = null) => {
+  const fetchBankSubmitStats = useCallback(async (userProfileData = null, dateFrom = null, dateTo = null) => {
     const headers = getAuthHeaders();
 
     const [completedRows, pendingRows] = await Promise.all([
       fetchEndpointRowsByDepartment(
         "/api/Export/Get-Completed-Bank-Submission-Date-Count",
         headers,
-        userProfileData
+        userProfileData,
+        dateFrom,
+        dateTo
       ),
       fetchEndpointRowsByDepartment(
         "/api/Export/Get-Pending-Bank-Submission-Date-Count",
         headers,
-        userProfileData
+        userProfileData,
+        dateFrom,
+        dateTo
       ),
     ]);
 
@@ -443,9 +509,9 @@ function Dashboard() {
         totalBankSubmissionDateCount: completedCount + pendingCount,
       }));
     }
-  }, []);
+  }, [fromDate, toDate]);
 
-  const fetchRealizationStats = useCallback(async (userProfileData = null) => {
+  const fetchRealizationStats = useCallback(async (userProfileData = null, dateFrom = null, dateTo = null) => {
     const headers = getAuthHeaders();
 
     const [expectedRows, realizedRows, upcomingRows, overdueRows] =
@@ -453,22 +519,30 @@ function Dashboard() {
         fetchEndpointRowsByDepartment(
           "/api/Export/Get-Pending-Realization-Expected-Date-Count",
           headers,
-          userProfileData
+          userProfileData,
+          dateFrom,
+          dateTo
         ),
         fetchEndpointRowsByDepartment(
           "/api/Export/Get-Completed-Realization-Date-Count",
           headers,
-          userProfileData
+          userProfileData,
+          dateFrom,
+          dateTo
         ),
         fetchEndpointRowsByDepartment(
           "/api/Export/Get-Pending-Realization-Upcomming-Date-Count",
           headers,
-          userProfileData
+          userProfileData,
+          dateFrom,
+          dateTo
         ),
         fetchEndpointRowsByDepartment(
           "/api/Export/Get-Pending-Realization-OverDue-Date-Count",
           headers,
-          userProfileData
+          userProfileData,
+          dateFrom,
+          dateTo
         ),
       ]);
 
@@ -492,7 +566,7 @@ function Dashboard() {
         realizedPercent,
       });
     }
-  }, []);
+  }, [fromDate, toDate]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -502,11 +576,11 @@ function Dashboard() {
       const userProfileData = await fetchUserProfileData();
 
       await Promise.all([
-        fetchExportDocsStats(userProfileData),
-        fetchBLDateStats(userProfileData),
-        fetchShippingStats(userProfileData),
-        fetchBankSubmitStats(userProfileData),
-        fetchRealizationStats(userProfileData),
+        fetchExportDocsStats(userProfileData, fromDate, toDate),
+        fetchBLDateStats(userProfileData, fromDate, toDate),
+        fetchShippingStats(userProfileData, fromDate, toDate),
+        fetchBankSubmitStats(userProfileData, fromDate, toDate),
+        fetchRealizationStats(userProfileData, fromDate, toDate),
       ]);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -524,6 +598,8 @@ function Dashboard() {
     fetchShippingStats,
     fetchBankSubmitStats,
     fetchRealizationStats,
+    fromDate,
+    toDate,
   ]);
 
   useEffect(() => {
@@ -538,6 +614,22 @@ function Dashboard() {
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchDashboardData();
+  };
+
+  const handleApplyFilter = () => {
+    const f = tempFromDate || formatDateForInput(defaultFromDate);
+    const t = tempToDate || formatDateForInput(defaultToDate);
+    setFromDate(f);
+    setToDate(t);
+  };
+
+  const handleResetFilter = () => {
+    const f = formatDateForInput(defaultFromDate);
+    const t = formatDateForInput(defaultToDate);
+    setTempFromDate(f);
+    setTempToDate(t);
+    setFromDate(f);
+    setToDate(t);
   };
 
   const formatCurrency = (value) => {
@@ -713,18 +805,64 @@ function Dashboard() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-3 pt-3 border-t border-white/5">
-            <div className="flex items-center gap-2 text-[10px] text-slate-400">
-              <span>📊 Last updated: {new Date().toLocaleString()}</span>
+          <div className="mt-3 pt-3 border-t border-white/5">
+            <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-3">
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-300">
+                  📅 From Date
+                </label>
+                <input
+                  type="date"
+                  value={tempFromDate}
+                  onChange={(e) => setTempFromDate(e.target.value)}
+                  className="w-full rounded-lg bg-white/5 border border-white/10 text-white px-3 py-1.5 text-xs outline-none focus:border-blue-500/60 focus:bg-white/10 transition"
+                />
+              </div>
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-300">
+                  📅 To Date
+                </label>
+                <input
+                  type="date"
+                  value={tempToDate}
+                  onChange={(e) => setTempToDate(e.target.value)}
+                  className="w-full rounded-lg bg-white/5 border border-white/10 text-white px-3 py-1.5 text-xs outline-none focus:border-blue-500/60 focus:bg-white/10 transition"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleApplyFilter}
+                  disabled={loading || refreshing}
+                  className="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 text-white px-4 py-1.5 text-[10px] font-bold hover:opacity-90 disabled:opacity-60 transition whitespace-nowrap shadow-lg shadow-blue-500/20"
+                >
+                  🔍 Apply Filter
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetFilter}
+                  disabled={loading || refreshing}
+                  className="rounded-lg bg-white/10 border border-white/10 text-white px-3 py-1.5 text-[10px] font-bold hover:bg-white/15 disabled:opacity-60 transition whitespace-nowrap"
+                >
+                  ↺ Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="rounded-lg bg-white/10 border border-white/10 text-white px-3 py-1.5 text-[10px] font-bold hover:bg-white/15 disabled:opacity-60 transition whitespace-nowrap"
+                >
+                  {refreshing ? "⟳ Refreshing..." : "⟳ Refresh"}
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="rounded-lg bg-white/10 border border-white/10 text-white px-3 py-1.5 text-[10px] font-bold hover:bg-white/15 disabled:opacity-60 transition whitespace-nowrap"
-            >
-              {refreshing ? "⟳ Refreshing..." : "⟳ Refresh"}
-            </button>
+            <div className="flex items-center gap-3 mt-2 text-[9px] text-slate-400">
+              <span>📊 Last updated: {new Date().toLocaleString()}</span>
+              <span className="hidden sm:inline text-slate-500">|</span>
+              <span>
+                Active range: <span className="text-slate-200 font-semibold">{fromDate}</span> to <span className="text-slate-200 font-semibold">{toDate}</span>
+              </span>
+            </div>
           </div>
         </div>
 

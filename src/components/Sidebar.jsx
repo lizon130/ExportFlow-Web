@@ -119,7 +119,7 @@ function Sidebar() {
       const token =
         localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-      await fetch("http://192.168.9.45:7000/api/Auth/logout", {
+      await fetch("http://192.168.11.39:7000/api/Auth/logout", {
         method: "POST",
         headers: {
           accept: "*/*",

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-const API_BASE_URL = "http://192.168.9.45:7000";
+const API_BASE_URL = "http://192.168.11.39:7000";
 
 function BLDateCheckPage() {
   const [refreshing, setRefreshing] = useState(false);
@@ -11,11 +11,24 @@ function BLDateCheckPage() {
   const [blCurrentPage, setBlCurrentPage] = useState(1);
   const [blItemsPerPage, setBlItemsPerPage] = useState(20);
 
-  // dept = Department Wise, factory = Factory Wise
+  // dept = Department Wise, factory = Factory Wise, month = Month Wise
   const [viewMode, setViewMode] = useState("dept");
 
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const getTodayDisplayDate = () => {
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, "0");
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const yyyy = today.getFullYear();
+
+    return `${dd}-${mm}-${yyyy}`;
+  };
+
+  // Default date filter: 01-Jan-2026 through today
+  const DEFAULT_FROM_DATE = "01-01-2026";
+  const DEFAULT_TO_DATE = getTodayDisplayDate();
+
+  const [fromDate, setFromDate] = useState(DEFAULT_FROM_DATE);
+  const [toDate, setToDate] = useState(DEFAULT_TO_DATE);
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [modalExportData, setModalExportData] = useState([]);
@@ -425,11 +438,26 @@ function BLDateCheckPage() {
   };
 
   const getUniqueBlSummaryKey = (item, index) => {
+    /*
+      IMPORTANT:
+      Same department can exist under different factories.
+
+      Example:
+      GB LADIES / TDL = 3
+      GB LADIES / TAL = 10
+
+      If factoryCode is not part of the key, these two rows are merged
+      together and Math.max(3, 10) becomes 10, losing 3 pending records.
+
+      Including factoryCode keeps them separate so the dashboard total
+      matches the API sum.
+    */
     const keyValue = [
       item?.departmentCode,
       item?.departmentName,
       item?.customerCode,
       item?.customerName,
+      item?.factoryCode,
     ]
       .map((value) => String(value || "").trim())
       .filter(Boolean)
@@ -645,6 +673,123 @@ function BLDateCheckPage() {
     return factoryCode || factoryName || "Unknown Factory";
   };
 
+  const getMonthOrder = (item) => {
+    const monthNo = Number(item?.exFacMonthNo || 0);
+
+    if (monthNo >= 1 && monthNo <= 12) return monthNo;
+
+    const monthName = normalizeText(item?.exFacMonthName);
+
+    const monthMap = {
+      january: 1,
+      february: 2,
+      march: 3,
+      april: 4,
+      may: 5,
+      june: 6,
+      july: 7,
+      august: 8,
+      september: 9,
+      october: 10,
+      november: 11,
+      december: 12,
+    };
+
+    return monthMap[monthName] || 99;
+  };
+
+  const getMonthNameFromDate = (dateValue) => {
+    if (!dateValue) return "";
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return date.toLocaleString("en-US", { month: "long" });
+  };
+
+  const getMonthNumberFromDate = (dateValue) => {
+    if (!dateValue) return "";
+
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "";
+
+    return String(date.getMonth() + 1);
+  };
+
+  const buildMonthWiseBlSummary = (rows) => {
+    const monthMap = new Map();
+
+    removeDuplicateBlDetails(rows)
+      .filter((row) => !row?.blDate)
+      .forEach((item, index) => {
+        const monthName =
+          String(item?.exFacMonthName || "").trim() ||
+          getMonthNameFromDate(item?.expDate) ||
+          getMonthNameFromDate(item?.invoiceDate) ||
+          getMonthNameFromDate(item?.shippingDate) ||
+          getMonthNameFromDate(item?.exFacDate) ||
+          "Unknown Month";
+
+        const monthNo =
+          String(item?.exFacMonthNo || "").trim() ||
+          getMonthNumberFromDate(item?.expDate) ||
+          getMonthNumberFromDate(item?.invoiceDate) ||
+          getMonthNumberFromDate(item?.shippingDate) ||
+          getMonthNumberFromDate(item?.exFacDate) ||
+          "";
+
+        const key =
+          normalizeText(monthName) ||
+          normalizeText(monthNo) ||
+          `month-${index}`;
+
+        if (!monthMap.has(key)) {
+          monthMap.set(key, {
+            ...item,
+            isMonthWise: true,
+            exFacMonthName: monthName,
+            exFacMonthNo: monthNo,
+            customerName: monthName,
+            departmentName: "Month Wise Summary",
+            departmentCode: monthNo,
+            pendingBLDateCount: 0,
+            pendingBL: 0,
+            totalValue: 0,
+            documentNumbers: [],
+            sourceRows: [],
+          });
+        }
+
+        const current = monthMap.get(key);
+
+        const documentNo = String(
+          item?.expDocumentNo ||
+            item?.exportDocumentNo ||
+            item?.packagingListNo ||
+            ""
+        ).trim();
+
+        if (
+          documentNo &&
+          !current.documentNumbers.some(
+            (value) => normalizeText(value) === normalizeText(documentNo)
+          )
+        ) {
+          current.documentNumbers.push(documentNo);
+        }
+
+        current.sourceRows.push(item);
+        current.pendingBLDateCount =
+          current.documentNumbers.length || current.sourceRows.length;
+        current.pendingBL = current.pendingBLDateCount;
+        current.totalValue += getNumber(item?.totalValue);
+      });
+
+    return Array.from(monthMap.values())
+      .filter((item) => getNumber(item?.pendingBL) > 0)
+      .sort((a, b) => getMonthOrder(a) - getMonthOrder(b));
+  };
+
   const buildFactoryWiseBlSummary = (rows) => {
     /*
       Factory wise implementation:
@@ -687,6 +832,120 @@ function BLDateCheckPage() {
     );
   };
 
+  const buildBlSummaryFromDetailRows = (rows) => {
+    const summaryMap = new Map();
+
+    removeDuplicateBlDetails(rows)
+      .filter((row) => !row?.blDate)
+      .forEach((row, index) => {
+        const factoryCode = String(row?.factoryCode || "").trim();
+        const departmentCode = String(row?.departmentCode || "").trim();
+        const departmentName = String(
+          row?.departmentName || departmentCode || "Unknown Department"
+        ).trim();
+        const customerCode = String(row?.customerCode || "").trim();
+        const customerName = String(
+          row?.customerName || customerCode || departmentName
+        ).trim();
+
+        const key =
+          [
+            normalizeText(departmentCode),
+            normalizeText(departmentName),
+            normalizeText(customerCode),
+            normalizeText(customerName),
+            normalizeText(factoryCode),
+          ].join("|") || `detail-summary-${index}`;
+
+        if (!summaryMap.has(key)) {
+          summaryMap.set(key, {
+            ...row,
+            departmentCode,
+            departmentName,
+            customerCode,
+            customerName,
+            factoryCode,
+            pendingBLDateCount: 0,
+            pendingBL: 0,
+            totalValue: 0,
+          });
+        }
+
+        const current = summaryMap.get(key);
+
+        current.pendingBLDateCount += 1;
+        current.pendingBL += 1;
+        current.totalValue += getNumber(row?.totalValue);
+      });
+
+    return Array.from(summaryMap.values());
+  };
+
+  const fetchDateFilteredBlDetailRows = async (access) => {
+    let mergedRows = [];
+
+    if (access?.isRestricted) {
+      const queryValues = access?.queryValues || [];
+
+      for (const queryValue of queryValues) {
+        try {
+          const data = await fetchJsonWithAuth(
+            getBlListUrl(queryValue, fromDate, toDate)
+          );
+
+          const rows = normalizeArray(data)
+            .filter((row) => rowMatchesDepartmentAccess(row, access))
+            .filter((row) => !row?.blDate);
+
+          mergedRows = [...mergedRows, ...rows];
+        } catch (error) {
+          console.error(
+            "Date-filtered B/L detail request failed:",
+            queryValue,
+            error
+          );
+        }
+      }
+    } else {
+      /*
+        IMPORTANT:
+        For unrestricted/admin users, call the exact endpoint pattern
+        that is already proven to return date-filtered rows:
+        /api/Export/Get-By-Dept-Bl-Date-List?fromDate=...&toDate=...
+
+        Do not force depName= here.
+      */
+      const apiFromDate = formatDisplayDateToApiDate(fromDate);
+      const apiToDate = formatDisplayDateToApiDate(toDate);
+
+      const params = [];
+
+      if (apiFromDate) {
+        params.push(`fromDate=${encodeURIComponent(apiFromDate)}`);
+      }
+
+      if (apiToDate) {
+        params.push(`toDate=${encodeURIComponent(apiToDate)}`);
+      }
+
+      const url =
+        `${API_BASE_URL}/api/Export/Get-By-Dept-Bl-Date-List` +
+        (params.length ? `?${params.join("&")}` : "");
+
+      const data = await fetchJsonWithAuth(url);
+
+      mergedRows = normalizeArray(data).filter((row) => !row?.blDate);
+    }
+
+    const uniqueRows = removeDuplicateBlDetails(mergedRows);
+
+    /*
+      Keep a client-side date check too, because some backend responses
+      may contain rows outside the requested range.
+    */
+    return filterBySelectedDates(uniqueRows, fromDate, toDate);
+  };
+
   const fetchBlSummary = async () => {
     setBlLoading(true);
     setError("");
@@ -705,38 +964,72 @@ function BLDateCheckPage() {
         return;
       }
 
-      let mergedRows = [];
+      let dateAwareDataArray = [];
 
-      for (const queryValue of queryValues.length ? queryValues : [""]) {
-        const data = await fetchJsonWithAuth(getBlSummaryUrl(queryValue));
+      if (fromDate || toDate) {
+        /*
+          FIX:
+          When a date range is selected, use the actual B/L detail API
+          as the source of truth instead of the summary count API.
 
-        const dataArray = normalizeArray(data).filter((item) =>
-          rowMatchesDepartmentAccess(item, access)
-        );
+          Example working API:
+          /api/Export/Get-By-Dept-Bl-Date-List
+            ?fromDate=2026-01-01
+            &toDate=2026-12-31
+        */
+        const detailRows = await fetchDateFilteredBlDetailRows(access);
+        dateAwareDataArray = buildBlSummaryFromDetailRows(detailRows);
+      } else {
+        let mergedRows = [];
 
-        mergedRows = [...mergedRows, ...dataArray];
+        for (const queryValue of queryValues.length ? queryValues : [""]) {
+          const data = await fetchJsonWithAuth(getBlSummaryUrl(queryValue));
+
+          const dataArray = normalizeArray(data).filter((item) =>
+            rowMatchesDepartmentAccess(item, access)
+          );
+
+          mergedRows = [...mergedRows, ...dataArray];
+        }
+
+        dateAwareDataArray = mergeBlSummaryRows(mergedRows);
       }
 
-      const dataArray = mergeBlSummaryRows(mergedRows);
-      const dateAwareDataArray = await applyDateFilterToBlSummaryRows(
-        dataArray,
-        access
-      );
-
       const pendingBlDepartments =
-        viewMode === "factory"
+        viewMode === "month"
+          ? buildMonthWiseBlSummary(
+              fromDate || toDate
+                ? await fetchDateFilteredBlDetailRows(access)
+                : dateAwareDataArray
+            )
+          : viewMode === "factory"
           ? buildFactoryWiseBlSummary(dateAwareDataArray)
           : dateAwareDataArray
-              .filter((item) => getNumber(item?.pendingBLDateCount || item?.pendingBL) > 0)
+              .filter(
+                (item) =>
+                  getNumber(
+                    item?.pendingBLDateCount || item?.pendingBL
+                  ) > 0
+              )
               .map((item) => ({
                 ...item,
-                pendingBL: getNumber(item?.pendingBLDateCount || item?.pendingBL),
-                customerName: item?.customerName || item?.departmentName || "Unknown",
-                departmentName: item?.departmentName || item?.departmentCode || "-",
+                pendingBL: getNumber(
+                  item?.pendingBLDateCount || item?.pendingBL
+                ),
+                customerName:
+                  item?.customerName ||
+                  item?.departmentName ||
+                  "Unknown",
+                departmentName:
+                  item?.departmentName ||
+                  item?.departmentCode ||
+                  "-",
                 departmentCode: item?.departmentCode || "",
                 totalValue: getNumber(item?.totalValue),
               }))
-              .sort((a, b) => (b?.pendingBL || 0) - (a?.pendingBL || 0));
+              .sort(
+                (a, b) => (b?.pendingBL || 0) - (a?.pendingBL || 0)
+              );
 
       setBlSummaryData(pendingBlDepartments);
       setFilteredBlData(pendingBlDepartments);
@@ -778,10 +1071,13 @@ function BLDateCheckPage() {
 
     return data.filter((item) => {
       const rawDate =
+        item?.expDate ||
+        item?.invoiceDate ||
+        item?.shippingDate ||
+        item?.shipmentDate ||
         item?.exFacDate ||
         item?.exFactoryDate ||
         item?.exfacDate ||
-        item?.shipmentDate ||
         item?.createdDate ||
         item?.blDate;
 
@@ -867,6 +1163,75 @@ function BLDateCheckPage() {
       setModalFilteredData(dateFilteredArray);
     } catch (error) {
       console.error("Fetch B/L modal error:", error);
+      setModalExportData([]);
+      setModalFilteredData([]);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const fetchModalMonthBlData = async (item) => {
+    const monthName =
+      item?.exFacMonthName ||
+      getMonthNameFromDate(item?.expDate) ||
+      getMonthNameFromDate(item?.invoiceDate) ||
+      "Unknown Month";
+
+    const monthNo = String(item?.exFacMonthNo || "").trim();
+
+    setModalLoading(true);
+    setModalSearchText("");
+    setModalCurrentPage(1);
+    setModalDepartmentName(`${monthName} • Month B/L Pending Details`);
+    setShowDetailsModal(true);
+
+    try {
+      const { profile } = await fetchLoggedInUserProfile();
+      const access = buildDepartmentAccess(profile);
+
+      let rows = normalizeArray(item?.sourceRows);
+
+      if (!rows.length) {
+        rows = await fetchDateFilteredBlDetailRows(access);
+      }
+
+      const monthRows = removeDuplicateBlDetails(rows).filter((row) => {
+        if (row?.blDate) return false;
+
+        const rowMonthName = normalizeText(
+          row?.exFacMonthName ||
+            getMonthNameFromDate(row?.expDate) ||
+            getMonthNameFromDate(row?.invoiceDate) ||
+            getMonthNameFromDate(row?.shippingDate) ||
+            getMonthNameFromDate(row?.exFacDate)
+        );
+
+        const rowMonthNo = String(
+          row?.exFacMonthNo ||
+            getMonthNumberFromDate(row?.expDate) ||
+            getMonthNumberFromDate(row?.invoiceDate) ||
+            getMonthNumberFromDate(row?.shippingDate) ||
+            getMonthNumberFromDate(row?.exFacDate) ||
+            ""
+        ).trim();
+
+        if (monthNo && rowMonthNo) {
+          return rowMonthNo === monthNo;
+        }
+
+        return rowMonthName === normalizeText(monthName);
+      });
+
+      const dateFilteredArray = filterBySelectedDates(
+        monthRows,
+        fromDate,
+        toDate
+      );
+
+      setModalExportData(dateFilteredArray);
+      setModalFilteredData(dateFilteredArray);
+    } catch (error) {
+      console.error("Fetch Month B/L modal error:", error);
       setModalExportData([]);
       setModalFilteredData([]);
     } finally {
@@ -1092,23 +1457,31 @@ function BLDateCheckPage() {
 
       let mergedRows = [];
 
-      for (const departmentQuery of departmentQueries) {
-        try {
-          const detailData = await fetchJsonWithAuth(
-            getBlListUrl(departmentQuery, fromDate, toDate)
-          );
+      if (!access.isRestricted && (fromDate || toDate)) {
+        /*
+          For unrestricted users with a date filter, use the same
+          date-filtered detail API directly.
+        */
+        mergedRows = await fetchDateFilteredBlDetailRows(access);
+      } else {
+        for (const departmentQuery of departmentQueries) {
+          try {
+            const detailData = await fetchJsonWithAuth(
+              getBlListUrl(departmentQuery, fromDate, toDate)
+            );
 
-          const detailRows = normalizeArray(detailData)
-            .filter((row) => rowMatchesDepartmentAccess(row, access))
-            .filter((row) => !row?.blDate);
+            const detailRows = normalizeArray(detailData)
+              .filter((row) => rowMatchesDepartmentAccess(row, access))
+              .filter((row) => !row?.blDate);
 
-          mergedRows = [...mergedRows, ...detailRows];
-        } catch (detailError) {
-          console.error(
-            "Pending B/L detail request failed:",
-            departmentQuery,
-            detailError
-          );
+            mergedRows = [...mergedRows, ...detailRows];
+          } catch (detailError) {
+            console.error(
+              "Pending B/L detail request failed:",
+              departmentQuery,
+              detailError
+            );
+          }
         }
       }
 
@@ -1209,6 +1582,15 @@ function BLDateCheckPage() {
   const cardIcons = ["🚢", "📦", "🏬", "📄", "🛒", "🏭", "🧾", "⚓"];
 
   const getDisplayName = (item) => {
+    if (viewMode === "month" || item?.isMonthWise) {
+      return (
+        item?.exFacMonthName ||
+        getMonthNameFromDate(item?.expDate) ||
+        getMonthNameFromDate(item?.invoiceDate) ||
+        "Unknown Month"
+      );
+    }
+
     if (viewMode === "factory" || item?.isFactoryWise) {
       return (
         item?.factoryCode ||
@@ -1222,6 +1604,16 @@ function BLDateCheckPage() {
   };
 
   const getDepartmentSubText = (item) => {
+    if (viewMode === "month" || item?.isMonthWise) {
+      const monthNo =
+        item?.exFacMonthNo ||
+        getMonthNumberFromDate(item?.expDate) ||
+        getMonthNumberFromDate(item?.invoiceDate) ||
+        "-";
+
+      return `Month ${monthNo}`;
+    }
+
     if (viewMode === "factory" || item?.isFactoryWise) {
       return item?.factoryName || "Factory Wise Summary";
     }
@@ -1285,7 +1677,9 @@ function BLDateCheckPage() {
         item.departmentCode?.toLowerCase().includes(searchLower) ||
         item.departmentName?.toLowerCase().includes(searchLower) ||
         item.factoryCode?.toLowerCase().includes(searchLower) ||
-        item.factoryName?.toLowerCase().includes(searchLower)
+        item.factoryName?.toLowerCase().includes(searchLower) ||
+        item.exFacMonthName?.toLowerCase().includes(searchLower) ||
+        item.exFacMonthNo?.toString().toLowerCase().includes(searchLower)
     );
 
     setFilteredBlData(filtered);
@@ -1339,6 +1733,7 @@ function BLDateCheckPage() {
               >
                 <option value="dept">Department Wise</option>
                 <option value="factory">Factory Wise</option>
+                <option value="month">Month Wise</option>
               </select>
             </div>
 
@@ -1381,15 +1776,19 @@ function BLDateCheckPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setFromDate("");
-                      setToDate("");
+                      // Reset back to the original/default 2026 date range.
+                      // Previously this used empty strings, so the date inputs
+                      // became blank instead of returning to 01-01-2026 → today.
+                      setFromDate(DEFAULT_FROM_DATE);
+                      setToDate(DEFAULT_TO_DATE);
+                      setBlCurrentPage(1);
                     }}
                     className="rounded-xl bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/20 transition"
                   >
                     ✕ Reset
                   </button>
                   
-                  <div className="flex flex-wrap gap-1">
+                  {/* <div className="flex flex-wrap gap-1">
                     {fromDate && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 px-2 py-1 text-[10px] font-bold text-blue-300 border border-blue-500/20">
                         From: {fromDate}
@@ -1402,7 +1801,7 @@ function BLDateCheckPage() {
                         <button onClick={() => setToDate("")} className="hover:text-white">✕</button>
                       </span>
                     )}
-                  </div>
+                  </div> */}
                 </>
               )}
             </div>
@@ -1422,14 +1821,22 @@ function BLDateCheckPage() {
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-black text-white">📊 B/L Pending Summary</h2>
               <span className="text-xs text-slate-400">
-                {viewMode === "factory" ? "Overview by factory" : "Overview by assigned department"}
+                {viewMode === "factory"
+                  ? "Overview by factory"
+                  : viewMode === "month"
+                  ? "Overview by month"
+                  : "Overview by assigned department"}
               </span>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-blue-500/10 rounded-full px-3 py-1 border border-blue-500/20">
                 <span className="text-xs font-bold text-blue-300">
-                  {viewMode === "factory" ? "Factories" : "Departments"}
+                  {viewMode === "factory"
+                    ? "Factories"
+                    : viewMode === "month"
+                    ? "Months"
+                    : "Departments"}
                 </span>
                 <span className="text-sm font-black text-white">{totalDepartmentCount}</span>
               </div>
@@ -1485,14 +1892,24 @@ function BLDateCheckPage() {
           <div className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
               <h3 className="text-sm font-black text-white">
-                {viewMode === "factory" ? "Pending by Factory" : "Pending by Department"}
+                {viewMode === "factory"
+                  ? "Pending by Factory"
+                  : viewMode === "month"
+                  ? "Pending by Month"
+                  : "Pending by Department"}
               </h3>
 
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">🔍</span>
                 <input
                   onChange={(e) => handleBlSearch(e.target.value)}
-                  placeholder={viewMode === "factory" ? "Search factory..." : "Search department..."}
+                  placeholder={
+                    viewMode === "factory"
+                      ? "Search factory..."
+                      : viewMode === "month"
+                      ? "Search month..."
+                      : "Search department..."
+                  }
                   className="w-full sm:w-56 rounded-xl bg-[#1e293b] border border-white/10 pl-8 pr-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -1514,7 +1931,12 @@ function BLDateCheckPage() {
                         key={`${item?.factoryCode || item?.departmentCode || item?.departmentName || index}-${index}`}
                         type="button"
                         onClick={() => {
-                          if (viewMode === "factory" || item?.isFactoryWise) {
+                          if (viewMode === "month" || item?.isMonthWise) {
+                            fetchModalMonthBlData(item);
+                          } else if (
+                            viewMode === "factory" ||
+                            item?.isFactoryWise
+                          ) {
                             fetchModalFactoryBlData(item);
                           } else {
                             fetchModalExportData(item);
@@ -1524,6 +1946,8 @@ function BLDateCheckPage() {
                         title={
                           viewMode === "factory"
                             ? "Click to view factory B/L details"
+                            : viewMode === "month"
+                            ? "Click to view month B/L details"
                             : "Click to view details"
                         }
                         style={{ borderLeftWidth: 3, borderLeftColor: accentColor }}
@@ -1598,7 +2022,11 @@ function BLDateCheckPage() {
               <div className="py-12 text-center">
                 <div className="text-3xl mb-2">✅</div>
                 <h3 className="text-sm font-bold text-slate-200">
-                  {viewMode === "factory" ? "No pending factory summary found" : "No pending B/L found"}
+                  {viewMode === "factory"
+                    ? "No pending factory summary found"
+                    : viewMode === "month"
+                    ? "No pending month summary found"
+                    : "No pending B/L found"}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">All B/L dates are up to date</p>
               </div>
@@ -1904,7 +2332,11 @@ function DetailsModal({
         <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#111c35] px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20 text-base flex-shrink-0">
-              {title?.toLowerCase().includes("factory") ? "🏭" : "🚢"}
+              {title?.toLowerCase().includes("factory")
+                ? "🏭"
+                : title?.toLowerCase().includes("month")
+                ? "🗓️"
+                : "🚢"}
             </div>
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-white">{title}</h3>
