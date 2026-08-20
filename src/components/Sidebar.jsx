@@ -23,7 +23,31 @@ import { Link, useLocation } from "react-router-dom";
 function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState({});
+  const [currentUser, setCurrentUser] = useState(null);
   const location = useLocation();
+
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        setCurrentUser(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error("Failed to read logged-in user:", error);
+    }
+  }, []);
+
+  const displayName =
+    currentUser?.userName || currentUser?.email || "Guest User";
+  const displayEmail = currentUser?.email || "No email available";
+  const roleLabel = currentUser?.role || "User";
+  const initials =
+    (displayName || "U")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "U";
 
   const menuItems = [
     { icon: <Home size={20} />, label: "Dashboard", path: "/" },
@@ -119,7 +143,7 @@ function Sidebar() {
       const token =
         localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-      await fetch("http://192.168.11.39:7000/api/Auth/logout", {
+      await fetch("http://192.168.136.53:7000/api/Auth/logout", {
         method: "POST",
         headers: {
           accept: "*/*",
@@ -243,15 +267,18 @@ function Sidebar() {
         <div className="!px-5 !py-5 !border-b !border-gray-800">
           <div className="!flex !items-center !space-x-3">
             <div className="!w-11 !h-11 !bg-gradient-to-br !from-blue-500 !to-purple-600 !rounded-2xl !flex !items-center !justify-center !shadow-lg">
-              <span className="!font-bold !text-white">SA</span>
+              <span className="!font-bold !text-white">{initials}</span>
             </div>
 
             <div className="!flex-1 !overflow-hidden">
               <p className="!font-semibold !text-sm !truncate !text-white">
-                Super Admin
+                {displayName}
               </p>
               <p className="!text-xs !text-gray-400 !truncate">
-                superadmin@tusuka.com
+                {displayEmail}
+              </p>
+              <p className="!text-[10px] !text-blue-400 !truncate !uppercase !tracking-wide">
+                {roleLabel}
               </p>
             </div>
           </div>

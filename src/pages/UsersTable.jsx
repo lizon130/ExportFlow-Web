@@ -8,7 +8,7 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 
-const API_BASE = "http://192.168.11.39:7000/api";
+const API_BASE = "http://192.168.136.53:7000/api";
 
 function UsersTable() {
   const [users, setUsers] = useState([]);

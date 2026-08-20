@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const API_BASE_URL = "http://192.168.11.39:7000";
+const API_BASE_URL = "http://192.168.136.53:7000";
 
 const formatDateForApi = (date) => {
   if (!date) return "";
