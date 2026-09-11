@@ -5,7 +5,7 @@ const FEEDBACK_API_BASE =
   "http://192.168.136.53:7000/api/Notification/get-all-export-document-feedback";
 
 function LoggerPage() {
-  const [activeTab, setActiveTab] = useState("logs");
+  const [activeTab, setActiveTab] = useState("feedback");
 
   const [logs, setLogs] = useState([]);
   const [mode, setMode] = useState("today");
@@ -201,30 +201,39 @@ function LoggerPage() {
     });
   }, [logs, search, level]);
 
+  const getFeedbackTimestamp = (item) => {
+    const time = new Date(item.updatedDate || item.createdDate || 0).getTime();
+    return Number.isNaN(time) ? 0 : time;
+  };
+
   const filteredFeedbackRows = useMemo(() => {
     const key = feedbackSearch.trim().toLowerCase();
 
-    if (!key) return feedbackRows;
+    const rows = key
+      ? feedbackRows.filter((item) =>
+          [
+            item.recId,
+            item.userName,
+            item.roleName,
+            item.notifyName,
+            item.exportDocument,
+            item.departmentCode,
+            item.departmentName,
+            item.customerCode,
+            item.customerName,
+            item.prevFeedback,
+            item.feedback,
+            item.createdDate,
+            item.updatedDate,
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(key)
+        )
+      : [...feedbackRows];
 
-    return feedbackRows.filter((item) =>
-      [
-        item.recId,
-        item.userName,
-        item.roleName,
-        item.notifyName,
-        item.exportDocument,
-        item.departmentCode,
-        item.departmentName,
-        item.customerCode,
-        item.customerName,
-        item.prevFeedback,
-        item.feedback,
-        item.createdDate,
-        item.updatedDate,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(key)
+    return rows.sort(
+      (a, b) => getFeedbackTimestamp(b) - getFeedbackTimestamp(a)
     );
   }, [feedbackRows, feedbackSearch]);
 
@@ -333,28 +342,72 @@ function LoggerPage() {
         </div>
 
         {/* Tabs */}
-        <div className="bg-[#101827] rounded-xl border border-white/10 p-1">
-          <div className="grid grid-cols-2 gap-1">
-            <button
-              onClick={() => setActiveTab("logs")}
-              className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
-                activeTab === "logs"
-                  ? "bg-blue-600 text-white shadow-lg"
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              🧾 Logs
-            </button>
+        <div className="flex justify-center">
+          <div className="relative inline-flex items-center gap-1.5 rounded-2xl bg-[#101827]/90 backdrop-blur border border-white/10 p-1.5 shadow-xl">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-transparent to-cyan-500/10 pointer-events-none" />
 
             <button
               onClick={() => setActiveTab("feedback")}
-              className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
+              className={`relative flex items-center gap-2 rounded-xl px-4 sm:px-5 py-2.5 text-xs font-black tracking-wide transition-all duration-300 ${
                 activeTab === "feedback"
-                  ? "bg-indigo-600 text-white shadow-lg"
+                  ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-600/40 scale-[1.02]"
                   : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              💬 Feedback
+              <span
+                className={`text-sm transition-transform duration-300 ${
+                  activeTab === "feedback" ? "scale-110" : "grayscale opacity-70"
+                }`}
+              >
+                💬
+              </span>
+              <span className="hidden sm:inline">Feedback</span>
+
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[9px] font-black tabular-nums transition ${
+                  activeTab === "feedback"
+                    ? "bg-white/25 text-white"
+                    : "bg-white/10 text-slate-400"
+                }`}
+              >
+                {feedbackCounts.total}
+              </span>
+
+              {activeTab === "feedback" && (
+                <span className="absolute -bottom-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-gradient-to-r from-transparent via-white/80 to-transparent" />
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab("logs")}
+              className={`relative flex items-center gap-2 rounded-xl px-4 sm:px-5 py-2.5 text-xs font-black tracking-wide transition-all duration-300 ${
+                activeTab === "logs"
+                  ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-600/40 scale-[1.02]"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <span
+                className={`text-sm transition-transform duration-300 ${
+                  activeTab === "logs" ? "scale-110" : "grayscale opacity-70"
+                }`}
+              >
+                🧾
+              </span>
+              <span className="hidden sm:inline">Logs</span>
+
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[9px] font-black tabular-nums transition ${
+                  activeTab === "logs"
+                    ? "bg-white/25 text-white"
+                    : "bg-white/10 text-slate-400"
+                }`}
+              >
+                {counts.ALL}
+              </span>
+
+              {activeTab === "logs" && (
+                <span className="absolute -bottom-px left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full bg-gradient-to-r from-transparent via-white/80 to-transparent" />
+              )}
             </button>
           </div>
         </div>
@@ -581,6 +634,7 @@ function LoggerPage() {
                           <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Document</th>
                           <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Dept/Buyer</th>
                           <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Feedback</th>
+                          <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Time</th>
                           <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
                           <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-wider">Action</th>
                         </tr>
@@ -609,6 +663,11 @@ function LoggerPage() {
                               <td className="px-3 py-2 max-w-xs">
                                 <p className="text-xs font-bold text-white truncate">
                                   {item.feedback || "-"}
+                                </p>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                <p className="text-[10px] font-bold text-slate-300">
+                                  🕒 {formatDateTime(item.updatedDate || item.createdDate)}
                                 </p>
                               </td>
                               <td className="px-3 py-2">
@@ -663,6 +722,13 @@ function LoggerPage() {
                           <div className="mt-2">
                             <p className="text-[9px] font-bold text-slate-400">Feedback</p>
                             <p className="text-xs font-bold text-white truncate">{item.feedback || "-"}</p>
+                          </div>
+
+                          <div className="mt-2">
+                            <p className="text-[9px] font-bold text-slate-400">Time</p>
+                            <p className="text-xs font-bold text-slate-300">
+                              🕒 {formatDateTime(item.updatedDate || item.createdDate)}
+                            </p>
                           </div>
 
                           <button
