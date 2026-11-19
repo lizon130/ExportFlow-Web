@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { LEGACY_SECURITY_URL } from "../config/api";
 
 const AssignRoleModal = ({ isOpen, onClose, user, onSuccess }) => {
   const [roles, setRoles] = useState([]);
@@ -8,7 +9,7 @@ const AssignRoleModal = ({ isOpen, onClose, user, onSuccess }) => {
   // Fetch available roles when modal opens
   useEffect(() => {
     if (isOpen) {
-      fetch("http://localhost:5208/api/Security/get-all-roles")
+      fetch(`${LEGACY_SECURITY_URL}/get-all-roles`)
         .then((res) => res.json())
         .then((data) => setRoles(data))
         .catch((err) => console.error("Failed to load roles", err));
@@ -20,7 +21,7 @@ const AssignRoleModal = ({ isOpen, onClose, user, onSuccess }) => {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5208/api/Security/assign-role-to-user", {
+      const response = await fetch(`${LEGACY_SECURITY_URL}/assign-role-to-user`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id, roleId: parseInt(selectedRoleId) }),

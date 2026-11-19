@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LEGACY_USERS_URL } from "../config/api";
 
 function Registration() {
   const [firstName, setFirstName] = useState("");
@@ -22,7 +23,7 @@ function Registration() {
     };
 
     try {
-      const response = await fetch("http://localhost:5142/api/users/register", {
+      const response = await fetch(`${LEGACY_USERS_URL}/users/register`, {
         
         method: "POST",
         headers: {

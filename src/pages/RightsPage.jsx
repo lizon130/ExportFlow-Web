@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { API_BASE } from "../config/api";
 
-const API_URL = "http://192.168.136.53:7000/api/Permission";
+const API_URL = `${API_BASE}/Permission`;
 
 const RightsPage = () => {
   const [rights, setRights] = useState([]);

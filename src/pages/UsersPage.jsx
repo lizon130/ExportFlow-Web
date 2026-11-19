@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import AssignRoleModal from "./AssignRoleModal"; // Use the component we made earlier
+import { LEGACY_SECURITY_URL } from "../config/api";
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
@@ -13,7 +14,7 @@ const UsersPage = () => {
   // Form State for New User
   const [newUser, setNewUser] = useState({ username: "", email: "", password: "" });
 
-  const API_URL = "http://localhost:5208/api/Security";
+  const API_URL = LEGACY_SECURITY_URL;
 
   // 1. Fetch Users
   const fetchUsers = async () => {

@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-
-const API_BASE_URL = "http://192.168.136.53:7000";
+import { API_BASE_URL } from "../config/api";
 
 function BankSubmitPage() {
   const [refreshing, setRefreshing] = useState(false);

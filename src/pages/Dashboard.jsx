@@ -10,8 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-
-const API_BASE_URL = "http://192.168.136.53:7000";
+import { API_BASE_URL } from "../config/api";
 
 const formatDateForApi = (date) => {
   if (!date) return "";

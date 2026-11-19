@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { API_BASE } from "../config/api";
 
-const LOGGER_API_BASE = "http://192.168.136.53:7000/api/Logger";
-const FEEDBACK_API_BASE =
-  "http://192.168.136.53:7000/api/Notification/get-all-export-document-feedback";
+const LOGGER_API_BASE = `${API_BASE}/Logger`;
+const FEEDBACK_API_BASE = `${API_BASE}/Notification/get-all-export-document-feedback`;
 
 function LoggerPage() {
   const [activeTab, setActiveTab] = useState("feedback");

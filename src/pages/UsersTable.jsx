@@ -7,8 +7,7 @@ import {
   getSortedRowModel,
   flexRender,
 } from "@tanstack/react-table";
-
-const API_BASE = "http://192.168.136.53:7000/api";
+import { API_BASE } from "../config/api";
 
 function UsersTable() {
   const [users, setUsers] = useState([]);

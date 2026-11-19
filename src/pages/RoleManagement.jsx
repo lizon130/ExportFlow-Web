@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-
-const API_BASE = "http://192.168.136.53:7000/api";
+import { API_BASE } from "../config/api";
 
 const RoleManagement = () => {
   const [roles, setRoles] = useState([]);

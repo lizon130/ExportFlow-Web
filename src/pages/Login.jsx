@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { API_BASE } from "../config/api";
 
 function Login() {
   const [userName, setUserName] = useState("");
@@ -11,7 +12,7 @@ function Login() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const API_URL = "http://192.168.136.53:7000/api/Auth/login";
+  const API_URL = `${API_BASE}/Auth/login`;
 
   /*
     Load saved login credentials when the page opens.

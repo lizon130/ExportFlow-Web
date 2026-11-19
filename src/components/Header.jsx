@@ -12,8 +12,7 @@ import {
   Building2,
   Users,
 } from "lucide-react";
-
-const API_BASE_URL = "http://192.168.136.53:7000";
+import { API_BASE_URL } from "../config/api";
 
 function Header({ onMenuClick }) {
   const [searchOpen, setSearchOpen] = useState(false);

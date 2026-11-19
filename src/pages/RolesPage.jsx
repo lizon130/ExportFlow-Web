@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { LEGACY_SECURITY_URL } from "../config/api";
 
 const RolesPage = () => {
   const [roles, setRoles] = useState([]);
@@ -7,7 +8,7 @@ const RolesPage = () => {
   const [newRoleName, setNewRoleName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const API_URL = "http://localhost:5208/api/Security";
+  const API_URL = LEGACY_SECURITY_URL;
 
   // Fetch Data
   const fetchData = async () => {

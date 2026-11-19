@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { LEGACY_SECURITY_URL } from "../config/api";
 
 const AssignRightToRole = () => {
   const [roles, setRoles] = useState([]);
@@ -9,8 +10,8 @@ const AssignRightToRole = () => {
   useEffect(() => {
     // Fetch both Roles and Rights
     const fetchData = async () => {
-      const rolesRes = await fetch("http://localhost:5208/api/Security/get-all-roles");
-      const rightsRes = await fetch("http://localhost:5208/api/Security/get-all-rights");
+      const rolesRes = await fetch(`${LEGACY_SECURITY_URL}/get-all-roles`);
+      const rightsRes = await fetch(`${LEGACY_SECURITY_URL}/get-all-rights`);
       setRoles(await rolesRes.json());
       setRights(await rightsRes.json());
     };
@@ -21,7 +22,7 @@ const AssignRightToRole = () => {
     if (!selectedRole || !selectedRight) return;
 
     try {
-      const res = await fetch("http://localhost:5208/api/Security/assign-right-to-role", {
+      const res = await fetch(`${LEGACY_SECURITY_URL}/assign-right-to-role`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 

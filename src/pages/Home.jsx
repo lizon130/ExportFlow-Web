@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { WASH_MACHINE_API } from '../config/api'
 
 function Home() {
   const [data, setData] = useState(null)
@@ -23,7 +24,7 @@ function Home() {
     setLoading(true)
     setError('')
 
-    const url = `http://192.168.136.52:5000/api/Wash-Machine/date-counts?unit_id=${unitId}&date_from=${dateFrom}&date_to=${dateTo}`
+    const url = `${WASH_MACHINE_API}/Wash-Machine/date-counts?unit_id=${unitId}&date_from=${dateFrom}&date_to=${dateTo}`
 
     fetch(url)
       .then((res) => {

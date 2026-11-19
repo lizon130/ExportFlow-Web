@@ -19,6 +19,7 @@ import {
   ScrollText,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { API_BASE } from "../config/api";
 
 function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -143,7 +144,7 @@ function Sidebar() {
       const token =
         localStorage.getItem("accessToken") || localStorage.getItem("token");
 
-      await fetch("http://192.168.136.53:7000/api/Auth/logout", {
+      await fetch(`${API_BASE}/Auth/logout`, {
         method: "POST",
         headers: {
           accept: "*/*",
