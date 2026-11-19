@@ -143,7 +143,7 @@ function RealizationPage() {
     } catch {
       return {};
     }
-  };
+  }; 
 
   const getAccessTokenFromPayload = (payload) => {
     if (!payload) return "";
