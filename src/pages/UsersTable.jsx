@@ -8,6 +8,7 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 import { API_BASE } from "../config/api";
+import { SkeletonRows } from "../components/Skeleton";
 
 function UsersTable() {
   const [users, setUsers] = useState([]);
@@ -390,7 +391,7 @@ function UsersTable() {
 
   return (
     <div className="min-h-screen w-full bg-[#0a0c12] p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         {/* Header */}
         <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#101827] via-[#1a1f35] to-[#101827] p-4 shadow-lg border border-white/10">
           <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-purple-500/20 blur-2xl" />
@@ -491,22 +492,28 @@ function UsersTable() {
               </thead>
 
               <tbody className="divide-y divide-white/5">
-                {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-white/5 transition">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-3 py-2.5">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
+                {loading && table.getRowModel().rows.length === 0 ? (
+                  <SkeletonRows rows={6} cols={5} />
+                ) : (
+                  <>
+                    {table.getRowModel().rows.map((row) => (
+                      <tr key={row.id} className="hover:bg-white/5 transition">
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="px-3 py-2.5">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
-                ))}
 
-                {table.getRowModel().rows.length === 0 && (
-                  <tr>
-                    <td colSpan="5" className="px-3 py-8 text-center text-slate-400 text-sm">
-                      No users found
-                    </td>
-                  </tr>
+                    {table.getRowModel().rows.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="px-3 py-8 text-center text-slate-400 text-sm">
+                          No users found
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 )}
               </tbody>
             </table>

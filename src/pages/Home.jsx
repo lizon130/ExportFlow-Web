@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { WASH_MACHINE_API } from '../config/api'
+import { SkeletonCardGrid } from '../components/Skeleton'
 
 function Home() {
   const [data, setData] = useState(null)
@@ -57,7 +58,7 @@ function Home() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 w-full">
       <h2 className="text-2xl font-bold mb-4 text-gray-800">Wash Machine Summary</h2>
 
       {/* Filter Form */}
@@ -101,7 +102,7 @@ function Home() {
       </form>
 
       {/* Loading & Error */}
-      {loading && <p className="text-blue-500 font-bold">Loading...</p>}
+      {loading && <SkeletonCardGrid count={2} />}
       {error && <p className="text-red-500 font-bold">{error}</p>}
 
       {/* Data Display */}

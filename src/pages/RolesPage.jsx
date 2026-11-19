@@ -64,7 +64,7 @@ const RolesPage = () => {
   const hasRight = (rightId) => selectedRole?.roleRights?.some(rr => rr.rightId === rightId);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 w-full">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Roles & Permissions</h1>
 
       {/* CREATE ROLE BAR */}

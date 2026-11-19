@@ -672,6 +672,8 @@ function Dashboard() {
         bg: "bg-blue-500/10",
         border: "border-blue-500/20",
         text: "text-blue-300",
+        grad: "linear-gradient(135deg, #3b82f6, #22d3ee)",
+        glow: "rgba(59,130,246,0.30)",
       },
       {
         id: 2,
@@ -685,6 +687,8 @@ function Dashboard() {
         bg: "bg-violet-500/10",
         border: "border-violet-500/20",
         text: "text-violet-300",
+        grad: "linear-gradient(135deg, #8b5cf6, #a855f7)",
+        glow: "rgba(139,92,246,0.30)",
       },
       {
         id: 3,
@@ -698,6 +702,8 @@ function Dashboard() {
         bg: "bg-cyan-500/10",
         border: "border-cyan-500/20",
         text: "text-cyan-300",
+        grad: "linear-gradient(135deg, #06b6d4, #38bdf8)",
+        glow: "rgba(6,182,212,0.30)",
       },
       {
         id: 4,
@@ -711,6 +717,8 @@ function Dashboard() {
         bg: "bg-pink-500/10",
         border: "border-pink-500/20",
         text: "text-pink-300",
+        grad: "linear-gradient(135deg, #ec4899, #fb7185)",
+        glow: "rgba(236,72,153,0.30)",
       },
     ],
     [exportStats]
@@ -752,16 +760,20 @@ function Dashboard() {
   if (loading) {
     return (
       <div className="min-h-screen w-full bg-[#0a0c12] p-4 md:p-6">
-        <div className="max-w-7xl mx-auto space-y-4 animate-pulse">
-          <div className="h-28 rounded-xl bg-[#101827]" />
+        <div className="w-full space-y-4 animate-fade-up">
+          <div className="h-28 rounded-xl bg-[#101827] shimmer" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[1, 2, 3, 4].map((item) => (
-              <div key={item} className="h-32 rounded-xl bg-[#101827]" />
+              <div
+                key={item}
+                className="h-32 rounded-xl bg-[#101827] shimmer animate-fade-up"
+                style={{ animationDelay: `${item * 70}ms` }}
+              />
             ))}
           </div>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-            <div className="h-64 rounded-xl bg-[#101827]" />
-            <div className="h-64 rounded-xl bg-[#101827]" />
+            <div className="h-64 rounded-xl bg-[#101827] shimmer" />
+            <div className="h-64 rounded-xl bg-[#101827] shimmer" />
           </div>
         </div>
       </div>
@@ -770,62 +782,42 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen w-full bg-[#0a0c12] text-white p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         {/* Header */}
-        <div className="rounded-xl bg-gradient-to-r from-[#101827] via-[#1a1f35] to-[#101827] border border-white/10 p-4 shadow-lg">
-          <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-3">
-            <div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[9px] font-bold text-blue-300 border border-blue-500/20 mb-1.5">
-                ⚡ Export Intelligence
-              </div>
-
-              <h1 className="text-xl font-black text-white">
-                ExportFlow Dashboard
-              </h1>
-
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                API based export document, B/L, shipping, bank submit and realization summary
-              </p>
+        {/* Filter Bar */}
+        <div className="animate-fade-up rounded-xl bg-[#101827]/80 backdrop-blur-xl border border-white/10 px-3 py-2.5 shadow-lg shadow-black/20">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2">
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-400">
+              <span>📊 Last updated: {new Date().toLocaleString()}</span>
+              <span className="hidden sm:inline text-slate-500">|</span>
+              <span>
+                Active range:{" "}
+                <span className="text-slate-200 font-semibold">{fromDate}</span> to{" "}
+                <span className="text-slate-200 font-semibold">{toDate}</span>
+              </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-center">
-                <div className="text-sm font-bold text-white">{totalDocs}</div>
-                <div className="text-[8px] text-slate-400">Total Docs</div>
-              </div>
-              <div className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-center">
-                <div className="text-sm font-bold text-amber-300">{totalPending}</div>
-                <div className="text-[8px] text-slate-400">Pending</div>
-              </div>
-              <div className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-center">
-                <div className="text-sm font-bold text-emerald-300">{realizationStats.realizedPercent}%</div>
-                <div className="text-[8px] text-slate-400">Realized</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 pt-3 border-t border-white/5">
-            <div className="flex flex-col md:flex-row md:items-end gap-2 md:gap-3">
-              <div className="flex flex-col gap-1 flex-1 min-w-0">
-                <label className="text-[9px] font-bold text-slate-300">
-                  📅 From Date
-                </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold text-slate-300 whitespace-nowrap">
+                  From
+                </span>
                 <input
                   type="date"
                   value={tempFromDate}
                   onChange={(e) => setTempFromDate(e.target.value)}
-                  className="w-full rounded-lg bg-white/5 border border-white/10 text-white px-3 py-1.5 text-xs outline-none focus:border-blue-500/60 focus:bg-white/10 transition"
+                  className="rounded-lg bg-white/5 border border-white/10 text-white px-2.5 py-1.5 text-xs outline-none focus:border-blue-500/60 focus:bg-white/10 transition"
                 />
               </div>
-              <div className="flex flex-col gap-1 flex-1 min-w-0">
-                <label className="text-[9px] font-bold text-slate-300">
-                  📅 To Date
-                </label>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold text-slate-300 whitespace-nowrap">
+                  To
+                </span>
                 <input
                   type="date"
                   value={tempToDate}
                   onChange={(e) => setTempToDate(e.target.value)}
-                  className="w-full rounded-lg bg-white/5 border border-white/10 text-white px-3 py-1.5 text-xs outline-none focus:border-blue-500/60 focus:bg-white/10 transition"
+                  className="rounded-lg bg-white/5 border border-white/10 text-white px-2.5 py-1.5 text-xs outline-none focus:border-blue-500/60 focus:bg-white/10 transition"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -833,7 +825,7 @@ function Dashboard() {
                   type="button"
                   onClick={handleApplyFilter}
                   disabled={loading || refreshing}
-                  className="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 text-white px-4 py-1.5 text-[10px] font-bold hover:opacity-90 disabled:opacity-60 transition whitespace-nowrap shadow-lg shadow-blue-500/20"
+                  className="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 text-white px-4 py-1.5 text-[10px] font-bold hover:opacity-90 active:scale-95 disabled:opacity-60 transition-all duration-200 whitespace-nowrap shadow-lg shadow-blue-500/20"
                 >
                   🔍 Apply Filter
                 </button>
@@ -841,7 +833,7 @@ function Dashboard() {
                   type="button"
                   onClick={handleResetFilter}
                   disabled={loading || refreshing}
-                  className="rounded-lg bg-white/10 border border-white/10 text-white px-3 py-1.5 text-[10px] font-bold hover:bg-white/15 disabled:opacity-60 transition whitespace-nowrap"
+                  className="rounded-lg bg-white/10 border border-white/10 text-white px-3 py-1.5 text-[10px] font-bold hover:bg-white/15 active:scale-95 disabled:opacity-60 transition-all duration-200 whitespace-nowrap"
                 >
                   ↺ Reset
                 </button>
@@ -849,31 +841,30 @@ function Dashboard() {
                   type="button"
                   onClick={handleRefresh}
                   disabled={refreshing}
-                  className="rounded-lg bg-white/10 border border-white/10 text-white px-3 py-1.5 text-[10px] font-bold hover:bg-white/15 disabled:opacity-60 transition whitespace-nowrap"
+                  className="rounded-lg bg-white/10 border border-white/10 text-white px-3 py-1.5 text-[10px] font-bold hover:bg-white/15 active:scale-95 disabled:opacity-60 transition-all duration-200 whitespace-nowrap"
                 >
-                  {refreshing ? "⟳ Refreshing..." : "⟳ Refresh"}
+                  {refreshing ? (
+                    <span className="flex items-center gap-1">
+                      <span className="animate-spin-slow">⟳</span> Refreshing...
+                    </span>
+                  ) : (
+                    "⟳ Refresh"
+                  )}
                 </button>
               </div>
-            </div>
-            <div className="flex items-center gap-3 mt-2 text-[9px] text-slate-400">
-              <span>📊 Last updated: {new Date().toLocaleString()}</span>
-              <span className="hidden sm:inline text-slate-500">|</span>
-              <span>
-                Active range: <span className="text-slate-200 font-semibold">{fromDate}</span> to <span className="text-slate-200 font-semibold">{toDate}</span>
-              </span>
             </div>
           </div>
         </div>
 
         {message && (
-          <div className="rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 px-3 py-2 text-xs font-bold">
+          <div className="animate-fade-up rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 px-3 py-2 text-xs font-bold">
             ⚠️ {message}
           </div>
         )}
 
         {/* Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {cards.map((card) => {
+          {cards.map((card, index) => {
             const percent = card.total
              ? (card.pending > 0
       ? Math.min(99.9, (card.completed / card.total) * 100)
@@ -882,11 +873,12 @@ function Dashboard() {
             return (
               <div
                 key={card.id}
-                className={`rounded-xl bg-[#101827] border ${card.border} p-3 shadow-lg hover:scale-[1.02] transition-all duration-200`}
+                className={`glow-card animate-fade-up group relative overflow-hidden rounded-xl bg-[#101827] border ${card.border} p-3 shadow-lg`}
+                style={{ "--glow": card.glow, animationDelay: `${index * 90}ms` }}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
-                    <div className={`h-8 w-8 rounded-lg ${card.bg} flex items-center justify-center text-base`}>
+                    <div className={`h-8 w-8 rounded-lg ${card.bg} flex items-center justify-center text-base transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6`}>
                       {card.icon}
                     </div>
                     <div>
@@ -902,7 +894,9 @@ function Dashboard() {
                 <div className="flex justify-between items-end mb-2">
                   <div>
                     <p className="text-[8px] text-slate-400">Completed</p>
-                    <h2 className="text-xl font-bold text-white">{card.completed}</h2>
+                    <h2 className="text-xl font-bold text-white transition-transform duration-300 group-hover:scale-105 origin-left">
+                      {card.completed}
+                    </h2>
                   </div>
                   <div className="text-right">
                     <p className="text-[8px] text-slate-400">Progress</p>
@@ -918,11 +912,8 @@ function Dashboard() {
 
                 <div className="h-1.5 rounded-full bg-white/10 overflow-hidden mb-1.5">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r ${card.color}"
-                    style={{ 
-                      width: `${percent}%`,
-                      background: `linear-gradient(to right, ${card.color.split(' ')[0].replace('from-', '')}, ${card.color.split(' ')[1].replace('to-', '')})`
-                    }}
+                    className="progress-fill h-full rounded-full"
+                    style={{ width: `${percent}%`, background: card.grad }}
                   />
                 </div>
 
@@ -937,7 +928,10 @@ function Dashboard() {
         {/* Realization Card & Charts */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-3">
           {/* Realization Card */}
-          <div className="xl:col-span-4 rounded-xl bg-[#101827] border border-violet-500/20 p-3 shadow-lg">
+          <div
+            className="glow-card animate-fade-up xl:col-span-4 rounded-xl bg-[#101827] border border-violet-500/20 p-3 shadow-lg"
+            style={{ "--glow": "rgba(139,92,246,0.30)", animationDelay: "450ms" }}
+          >
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-lg bg-violet-500/20 flex items-center justify-center text-base">
@@ -954,19 +948,19 @@ function Dashboard() {
             </div>
 
             <div className="grid grid-cols-2 gap-1.5 mb-3">
-              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center transition-all duration-200 hover:bg-white/10 hover:-translate-y-0.5">
                 <p className="text-[8px] text-slate-400">Export</p>
                 <h3 className="text-xs font-bold text-white">{realizationTracking.shipment}</h3>
               </div>
-              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center transition-all duration-200 hover:bg-white/10 hover:-translate-y-0.5">
                 <p className="text-[8px] text-slate-400">Expected</p>
                 <h3 className="text-xs font-bold text-blue-300">{realizationTracking.expected}</h3>
               </div>
-              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center transition-all duration-200 hover:bg-white/10 hover:-translate-y-0.5">
                 <p className="text-[8px] text-slate-400">Realized</p>
                 <h3 className="text-xs font-bold text-emerald-300">{realizationTracking.realized}</h3>
               </div>
-              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center transition-all duration-200 hover:bg-white/10 hover:-translate-y-0.5">
                 <p className="text-[8px] text-slate-400">Pending</p>
                 <h3 className="text-xs font-bold text-amber-300">{realizationTracking.pending}</h3>
               </div>
@@ -975,21 +969,21 @@ function Dashboard() {
             <div className="mb-3">
               <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-400"
+                  className="progress-fill h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-400"
                   style={{ width: `${realizationTracking.percentage}%` }}
                 />
               </div>
-              <p className="text-center text-[9px] text-violet-300 mt-1">
+              <p className="text-center text-[9px] font-bold text-violet-300 mt-1">
                 {realizationTracking.percentage}% Realized
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-1.5 border-t border-violet-500/20 pt-2">
-              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center transition-all duration-200 hover:bg-white/10 hover:-translate-y-0.5">
                 <p className="text-[8px] text-slate-400">Upcoming</p>
                 <h3 className="text-xs font-bold text-orange-300">{realizationTracking.upcoming}</h3>
               </div>
-              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center">
+              <div className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-center transition-all duration-200 hover:bg-white/10 hover:-translate-y-0.5">
                 <p className="text-[8px] text-slate-400">Overdue</p>
                 <h3 className="text-xs font-bold text-red-300">{realizationTracking.overdue}</h3>
               </div>
@@ -1000,23 +994,43 @@ function Dashboard() {
           <div className="xl:col-span-8 grid grid-cols-1 gap-3">
             <ChartCard title="Realization Value Overview">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyData}>
+                <AreaChart data={monthlyData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="valueGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="month" stroke="#94a3b8" tick={{ fontSize: 9 }} />
-                  <YAxis stroke="#94a3b8" tickFormatter={(value) => `${Math.round(value)}K`} tick={{ fontSize: 9 }} />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value) * 1000)} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="month" stroke="#94a3b8" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} dy={4} />
+                  <YAxis stroke="#94a3b8" tickFormatter={(value) => `${Math.round(value)}K`} tick={{ fontSize: 9 }} tickLine={false} axisLine={false} width={32} />
+                  <Tooltip
+                    cursor={{ stroke: "rgba(59,130,246,0.4)", strokeDasharray: "4 4" }}
+                    contentStyle={{
+                      background: "rgba(16,24,39,0.95)",
+                      border: "1px solid rgba(148,163,184,0.2)",
+                      borderRadius: "10px",
+                      fontSize: "11px",
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+                    }}
+                    labelStyle={{ color: "#e2e8f0", fontWeight: 700, marginBottom: 2 }}
+                    itemStyle={{ color: "#93c5fd" }}
+                    formatter={(value) => formatCurrency(Number(value) * 1000)}
+                  />
                   <Area
                     type="monotone"
                     dataKey="value"
                     stroke="#3b82f6"
                     fill="url(#valueGradient)"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
+                    animationDuration={1200}
+                    animationEasing="ease-out"
+                    activeDot={{
+                      r: 4,
+                      fill: "#3b82f6",
+                      stroke: "#bfdbfe",
+                      strokeWidth: 2,
+                    }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -1025,7 +1039,10 @@ function Dashboard() {
         </div>
 
         {/* Document Pipeline Chart */}
-        <div className="rounded-xl bg-[#101827] border border-white/10 p-3 shadow-lg">
+        <div
+          className="animate-fade-up rounded-xl bg-[#101827] border border-white/10 p-3 shadow-lg"
+          style={{ animationDelay: "550ms" }}
+        >
           <div className="flex items-start justify-between gap-2 mb-3">
             <div>
               <h2 className="text-sm font-bold text-white">📦 Document Pipeline</h2>
@@ -1033,22 +1050,33 @@ function Dashboard() {
             </div>
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1 text-[8px] text-emerald-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" /> Complete
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse-dot" /> Complete
               </span>
               <span className="flex items-center gap-1 text-[8px] text-orange-300">
-                <span className="h-2 w-2 rounded-full bg-orange-500" /> Pending
+                <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse-dot" /> Pending
               </span>
             </div>
           </div>
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={cards}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="title" stroke="#94a3b8" tick={{ fontSize: 9 }} />
-                <YAxis stroke="#94a3b8" tick={{ fontSize: 9 }} />
-                <Tooltip />
-                <Bar dataKey="completed" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="pending" fill="#f97316" radius={[4, 4, 0, 0]} />
+              <BarChart data={cards} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="28%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="title" stroke="#94a3b8" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} dy={4} />
+                <YAxis stroke="#94a3b8" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} width={32} />
+                <Tooltip
+                  cursor={{ fill: "rgba(148,163,184,0.08)" }}
+                  contentStyle={{
+                    background: "rgba(16,24,39,0.95)",
+                    border: "1px solid rgba(148,163,184,0.2)",
+                    borderRadius: "10px",
+                    fontSize: "11px",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+                  }}
+                  labelStyle={{ color: "#e2e8f0", fontWeight: 700, marginBottom: 2 }}
+                  itemStyle={{ color: "#cbd5e1" }}
+                />
+                <Bar dataKey="completed" fill="#22c55e" radius={[5, 5, 0, 0]} animationDuration={1100} animationEasing="ease-out" />
+                <Bar dataKey="pending" fill="#f97316" radius={[5, 5, 0, 0]} animationDuration={1100} animationDelay={150} animationEasing="ease-out" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1059,7 +1087,10 @@ function Dashboard() {
 }
 
 const ChartCard = ({ title, children }) => (
-  <div className="rounded-xl bg-[#101827] border border-white/10 p-3 shadow-lg">
+  <div
+    className="glow-card animate-fade-up rounded-xl bg-[#101827] border border-white/10 p-3 shadow-lg"
+    style={{ "--glow": "rgba(59,130,246,0.30)", animationDelay: "500ms" }}
+  >
     <h2 className="text-sm font-bold text-white mb-0.5">{title}</h2>
     <p className="text-[8px] text-slate-400 mb-2">Live API dashboard overview</p>
     <div className="h-52">{children}</div>

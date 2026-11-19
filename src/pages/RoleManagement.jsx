@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { API_BASE } from "../config/api";
+import { SkeletonCardGrid, SkeletonTable } from "../components/Skeleton";
 
 const RoleManagement = () => {
   const [roles, setRoles] = useState([]);
@@ -146,12 +147,11 @@ const RoleManagement = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen w-full bg-[#0a0c12] flex items-center justify-center">
-        <div className="text-center">
-          <div className="h-12 w-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mx-auto" />
-          <p className="mt-3 text-sm text-slate-400 font-bold">
-            Loading role permissions...
-          </p>
+      <div className="min-h-screen w-full bg-[#0a0c12] p-4 md:p-6">
+        <div className="w-full space-y-4 animate-fade-up">
+          <div className="h-28 rounded-xl bg-[#101827] shimmer" />
+          <SkeletonCardGrid count={4} />
+          <SkeletonTable rows={8} cols={4} />
         </div>
       </div>
     );
@@ -159,7 +159,7 @@ const RoleManagement = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#0a0c12] p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         {/* Header */}
         <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#101827] via-[#1a1f35] to-[#101827] p-4 shadow-lg border border-white/10">
           <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-purple-500/20 blur-2xl" />

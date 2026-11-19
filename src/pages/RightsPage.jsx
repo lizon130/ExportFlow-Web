@@ -155,7 +155,7 @@ const RightsPage = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#0a0c12] p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         {/* Header */}
         <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#101827] via-[#1a1f35] to-[#101827] p-4 shadow-lg border border-white/10">
           <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-emerald-500/20 blur-2xl" />

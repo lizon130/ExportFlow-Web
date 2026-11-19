@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import AssignRoleModal from "./AssignRoleModal"; // Use the component we made earlier
 import { LEGACY_SECURITY_URL } from "../config/api";
+import { SkeletonRows } from "../components/Skeleton";
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
@@ -64,7 +65,7 @@ const UsersPage = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 w-full">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">User Management</h1>
         <button 
@@ -87,7 +88,7 @@ const UsersPage = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {loading ? <tr><td colSpan="4" className="p-4 text-center">Loading...</td></tr> : 
+            {loading ? <SkeletonRows rows={6} cols={4} light /> :
              users.map((user) => (
               <tr key={user.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 font-medium text-gray-900">{user.username}</td>

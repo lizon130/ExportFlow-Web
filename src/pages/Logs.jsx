@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { API_BASE } from "../config/api";
+import { SkeletonText } from "../components/Skeleton";
 
 const LOGGER_API_BASE = `${API_BASE}/Logger`;
 const FEEDBACK_API_BASE = `${API_BASE}/Notification/get-all-export-document-feedback`;
@@ -303,7 +304,7 @@ function LoggerPage() {
 
   return (
     <div className="min-h-screen w-full bg-[#0a0c12] p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         {/* Header */}
         <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#101827] via-[#1a1f35] to-[#101827] p-4 shadow-lg border border-white/10">
           <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-indigo-500/20 blur-2xl" />
@@ -518,8 +519,8 @@ function LoggerPage() {
               </div>
 
               {loading ? (
-                <div className="p-6 text-center text-slate-400 text-sm font-bold">
-                  Loading logs...
+                <div className="p-5 animate-fade-up">
+                  <SkeletonText lines={12} />
                 </div>
               ) : filteredLogs.length === 0 ? (
                 <div className="p-6 text-center text-slate-500 text-sm">

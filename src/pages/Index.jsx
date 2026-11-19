@@ -26,7 +26,7 @@ function Index() {
   });
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 w-full">
       <h1 className="text-3xl font-bold mb-4 text-gray-800 mt-16">
         Welcome to the User Page
       </h1>

@@ -10,7 +10,6 @@ import {
   Shield,
   Key,
   UserCog,
-  Menu,
   X,
   ClipboardList,
   Ship,
@@ -21,8 +20,7 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { API_BASE } from "../config/api";
 
-function Sidebar() {
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+function Sidebar({ mobileOpen, onMobileClose, collapsed }) {
   const [openMenus, setOpenMenus] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const location = useLocation();
@@ -128,7 +126,7 @@ function Sidebar() {
       return updatedMenus;
     });
 
-    setIsMobileOpen(false);
+    onMobileClose?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
@@ -209,60 +207,33 @@ function Sidebar() {
 
   return (
     <>
-      {/* Mobile menu open button */}
-      <button
-        type="button"
-        onClick={() => setIsMobileOpen(true)}
-        className="lg:!hidden !fixed !top-4 !left-4 !z-50 !bg-gray-900 !text-white !p-2 !rounded-xl !shadow-lg !border-0 focus:!outline-none focus:!ring-0"
-      >
-        <Menu size={22} />
-      </button>
-
-      {/* Mobile overlay */}
-      {isMobileOpen && (
+      {/* Mobile overlay (Header er hamburger theke khole) */}
+      {mobileOpen && (
         <div
-          onClick={() => setIsMobileOpen(false)}
-          className="lg:!hidden !fixed !inset-0 !bg-black/60 !z-40"
+          onClick={onMobileClose}
+          className="lg:!hidden !fixed !left-0 !right-0 !top-16 !bottom-0 !bg-black/60 !z-40"
         />
       )}
 
       <aside
         className={`
-          !fixed !left-0 !top-0 !z-50 !h-screen
+          !fixed !left-0 !top-16 !z-50 !h-[calc(100vh-4rem)]
           !w-72 lg:!w-64
           !bg-gray-900 !text-white
           !transition-transform !duration-300
           !flex !flex-col
-          ${isMobileOpen ? "!translate-x-0" : "-translate-x-full"}
-          lg:!translate-x-0
+          ${mobileOpen ? "!translate-x-0" : "-translate-x-full"}
+          ${collapsed ? "lg:!-translate-x-full" : "lg:!translate-x-0"}
         `}
       >
         {/* Mobile close button */}
         <button
           type="button"
-          onClick={() => setIsMobileOpen(false)}
+          onClick={onMobileClose}
           className="lg:!hidden !absolute !right-4 !top-4 !text-gray-300 hover:!text-white !bg-transparent !border-0 focus:!outline-none focus:!ring-0"
         >
           <X size={24} />
         </button>
-
-        {/* Logo */}
-        <div className="!h-16 !flex !items-center !px-5 !border-b !border-gray-800">
-          <Link
-            to="/"
-            className="!flex !items-center !gap-3 !no-underline !bg-transparent !border-0 focus:!outline-none focus:!ring-0"
-          >
-            <img
-              src="/favicon.png"
-              alt="ExportFlow Logo"
-              className="!h-10 !w-10 !rounded-xl !object-contain !p-1"
-            />
-
-            <span className="!text-lg !font-bold !tracking-wide !text-white">
-              ExportFlow
-            </span>
-          </Link>
-        </div>
 
         {/* User Profile */}
         <div className="!px-5 !py-5 !border-b !border-gray-800">

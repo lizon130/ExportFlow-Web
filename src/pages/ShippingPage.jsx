@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "../config/api";
+import { SkeletonCardGrid, SkeletonTable } from "../components/Skeleton";
 
 function ShippingPage() {
   const [refreshing, setRefreshing] = useState(false);
@@ -1491,7 +1492,7 @@ function ShippingPage() {
 
   return (
     <div className="min-h-screen w-full bg-[#0a0c12] text-slate-100 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
         {/* Header */}
         <div className="rounded-2xl bg-[#101827] border border-white/10 p-4 shadow-2xl">
           
@@ -1695,7 +1696,7 @@ function ShippingPage() {
             </div>
 
             {shippingLoading ? (
-              <div className="py-8 text-center text-slate-400 text-sm">{hasActiveFilters ? "Applying date filter..." : "Loading pending shipping..."}</div>
+              <SkeletonCardGrid count={8} />
             ) : shippingCurrentPageData.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -1918,8 +1919,8 @@ function AllPendingShippingModal({
         </div>
 
         {loading ? (
-          <div className="mx-4 mb-4 flex flex-1 items-center justify-center rounded-xl bg-[#111827] text-sm text-slate-400">
-            Loading all pending shipping documents...
+          <div className="mx-4 mb-4">
+            <SkeletonTable rows={8} cols={5} />
           </div>
         ) : rows.length > 0 ? (
           <div className="mx-4 mb-4 min-h-0 flex-1 overflow-y-auto rounded-xl border border-white/10 bg-[#0f172a]">
@@ -2160,8 +2161,8 @@ function DetailsModal({
         )}
 
         {loading ? (
-          <div className="mx-4 flex flex-1 items-center justify-center rounded-xl bg-[#111827] text-slate-400 text-sm">
-            Loading shipping records...
+          <div className="mx-4">
+            <SkeletonTable rows={8} cols={5} />
           </div>
         ) : data.length > 0 ? (
           <div className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0f172a]">

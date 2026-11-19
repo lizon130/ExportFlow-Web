@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "../config/api";
+import { SkeletonTable, SkeletonText } from "../components/Skeleton";
 
 function RealizationPage() {
   const [activeModal, setActiveModal] = useState(null);
@@ -1955,9 +1956,7 @@ function RealizationPage() {
           {renderRealizationSearchBox("exportValue")}
 
           {exportDetailLoading ? (
-            <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-6 text-center text-sm font-bold text-cyan-200">
-              Loading export value details...
-            </div>
+            <SkeletonTable rows={4} cols={3} />
           ) : (
             renderSmartRealizationCards(exportDetailRows, "exportValue")
           )}
@@ -2168,7 +2167,7 @@ function RealizationPage() {
 
   return (
     <div className="min-h-screen w-full bg-[#070b14] text-slate-100 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-4">
+      <div className="w-full space-y-4">
 
         {/* Date Filter Section */}
         <div className="rounded-xl bg-gradient-to-r from-[#101620] via-[#131b2e] to-[#101620] border border-white/10 p-3 md:p-4 shadow-lg">
@@ -2537,8 +2536,8 @@ function RealizationPage() {
         </div>
 
         {dashboardLoading && (
-          <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-bold text-blue-200">
-            Loading realization data...
+          <div className="animate-fade-up rounded-xl border border-white/10 bg-[#101827]/40 p-3">
+            <SkeletonText lines={4} />
           </div>
         )}
       </div>
@@ -2703,13 +2702,9 @@ function RealizationPage() {
                       <tr>
                         <td
                           colSpan={isDeptBuyerListDetailModal ? 5 : isPendingMonthDetailModal ? 4 : 2}
-                          className="px-3 py-8 text-center text-sm text-slate-400"
+                          className="px-3 py-3"
                         >
-                          {isFactoryDetailModal
-                            ? "Loading factory details..."
-                            : isMonthDeptBuyerDetailModal
-                            ? "Loading month Dept/Buyer details..."
-                            : "Loading details..."}
+                          <SkeletonText lines={7} />
                         </td>
                       </tr>
                     ) : selectedRealizationGroup?.error ? (

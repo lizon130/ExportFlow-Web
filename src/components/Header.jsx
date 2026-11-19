@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   Menu,
-  Bell,
+  Sun,
+  Moon,
   Search,
   X,
   ChevronDown,
@@ -14,10 +15,62 @@ import {
 } from "lucide-react";
 import { API_BASE_URL } from "../config/api";
 
-function Header({ onMenuClick }) {
+// Modern sidebar toggle icon (VS Code style — sidebar dekha jachhoy left panel filled)
+function SidebarToggleIcon({ collapsed }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4.5" width="18" height="15" rx="3" />
+      <line x1="9.2" y1="4.5" x2="9.2" y2="19.5" />
+      {collapsed ? (
+        <line
+          x1="4.8"
+          y1="12"
+          x2="7.6"
+          y2="12"
+          strokeDasharray="1.6 1.6"
+          opacity="0.7"
+        />
+      ) : (
+        <rect
+          x="4.6"
+          y="6.1"
+          width="3.2"
+          height="11.8"
+          rx="1.5"
+          fill="currentColor"
+          stroke="none"
+        />
+      )}
+    </svg>
+  );
+}
+
+function Header({ onMenuClick, onToggleCollapse, collapsed }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [theme, setTheme] = useState(() =>
+    document.documentElement.classList.contains("theme-light")
+      ? "light"
+      : "dark"
+  );
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.classList.toggle("theme-light", next === "light");
+    localStorage.setItem("theme", next);
+  };
 
   const [profile, setProfile] = useState({
     recId: "",
@@ -277,26 +330,30 @@ function Header({ onMenuClick }) {
           <div className="flex items-center gap-3">
             <button
               type="button"
+              onClick={onToggleCollapse}
+              title={collapsed ? "Sidebar dekhao" : "Sidebar lukao"}
+              className="hidden lg:inline-flex items-center justify-center p-2 rounded-xl bg-transparent text-gray-300 hover:text-white hover:bg-gray-800/80 hover:ring-1 hover:ring-gray-700 focus:outline-none focus:ring-0 transition"
+            >
+              <SidebarToggleIcon collapsed={collapsed} />
+            </button>
+
+            <button
+              type="button"
               onClick={onMenuClick}
               className="lg:hidden p-2 rounded-xl bg-transparent text-gray-300 hover:text-white hover:bg-gray-800 focus:outline-none focus:ring-0 transition"
             >
               <Menu size={22} />
             </button>
 
-            <div className="flex items-center gap-2">
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
-                E
-              </div>
+            <img
+              src="/favicon.png"
+              alt="ExportFlow Logo"
+              className="h-10 w-10 rounded-xl object-contain p-1"
+            />
 
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold text-white leading-tight">
-                  ExportFlow
-                </h1>
-                <p className="hidden sm:block text-[11px] text-gray-400">
-                  Management Panel
-                </p>
-              </div>
-            </div>
+            <span className="text-lg font-bold tracking-wide text-white select-none">
+              ExportFlow
+            </span>
           </div>
 
           <div className="hidden md:flex flex-1 max-w-xl mx-4">
@@ -325,10 +382,11 @@ function Header({ onMenuClick }) {
 
             <button
               type="button"
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Light theme" : "Dark theme"}
               className="relative p-2 rounded-xl bg-transparent text-gray-300 hover:text-white hover:bg-gray-800 focus:outline-none focus:ring-0 transition"
             >
-              <Bell size={21} />
-              <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-gray-900"></span>
+              {theme === "dark" ? <Sun size={21} /> : <Moon size={21} />}
             </button>
 
             <div className="relative">
